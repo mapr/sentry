@@ -29,7 +29,7 @@
     <format>tar.gz</format>
   </formats>
 
-  <baseDirectory>apache-sentry-${project.version}-bin</baseDirectory>
+  <baseDirectory>mapr-sentry-${project.version}-bin</baseDirectory>
 
   <dependencySets>
     <dependencySet>

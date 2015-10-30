@@ -68,10 +68,10 @@ limitations under the License.
     <easymock.version>3.0</easymock.version>
     <fest.reflect.version>1.4.1</fest.reflect.version>
     <guava.version>11.0.2</guava.version>
-    <hadoop.version>2.6.0</hadoop.version>
+    <hadoop.version>2.7.0-mapr-1506</hadoop.version>
     <hamcrest.version>1.3</hamcrest.version>
-    <hive-v2.version>2.0.0</hive-v2.version>
-    <hive.version>1.1.0</hive.version>
+    <hive-v2.version>2.0.0-mapr-1605</hive-v2.version>
+    <hive.version>1.2.0-mapr-1605</hive.version>
     <jackson.version>1.8.8</jackson.version>
     <jdo-api.version>3.0.1</jdo-api.version>
     <jettyVersion>7.6.16.v20140903</jettyVersion>
@@ -90,7 +90,7 @@ limitations under the License.
     <shiro.version>1.2.3</shiro.version>
     <slf4j.version>1.6.1</slf4j.version>
     <solr.version>4.10.2</solr.version>
-    <sqoop.version>1.99.6</sqoop.version>
+    <sqoop.version>1.99.6-mapr-1507</sqoop.version>
     <test.sentry.hadoop.classpath>${maven.test.classpath}</test.sentry.hadoop.classpath>
     <zookeeper.version>3.4.5</zookeeper.version>
     <kafka.version>0.9.0.0</kafka.version>
@@ -612,8 +612,6 @@ limitations under the License.
     <module>sentry-binding</module>
     <module>sentry-provider</module>
     <module>sentry-policy</module>
-    <module>sentry-tests</module>
-    <module>sentry-hdfs</module>
     <module>sentry-solr</module>
     <module>sentry-dist</module>
   </modules>
@@ -893,8 +891,15 @@ limitations under the License.
 
   <repositories>
     <repository>
-      <id>apache</id>
-      <url>https://repository.apache.org/content/repositories/</url>
+      <id>mapr.repo</id>
+      <url>http://repository.mapr.com/maven/</url>
+      <name>MapR Repositories</name>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
     </repository>
   </repositories>
 

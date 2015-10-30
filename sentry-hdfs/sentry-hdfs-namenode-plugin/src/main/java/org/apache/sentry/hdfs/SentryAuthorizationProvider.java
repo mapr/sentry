@@ -45,12 +45,19 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
+
+/**
+ * TODO: Feature is not supported by MapR distributive. Fixed and saved for compatibility purpose.
+ * TODO: Probably should be removed from distribution or replaced by ACE plugin.
+ */
 public class SentryAuthorizationProvider
     extends AuthorizationProvider implements Configurable {
 
   static class SentryAclFeature extends AclFeature {
     public SentryAclFeature(ImmutableList<AclEntry> entries) {
-      super(entries);
+      super(null);
+
+      throw new RuntimeException("HDFS ACL plugin is not supported by this distribution");
     }
   }
 
@@ -348,8 +355,7 @@ public class SentryAuthorizationProvider
           + ", isStale=" + isStale
           + ", hasAuthzObj=" + hasAuthzObj
           + ", origAuthzAsAcl=" + originalAuthzAsAcl + "]\n"
-          + "[" + (aclMap == null ? "null" : aclMap) + "]\n"
-          + "[" + (f == null ? "null" : f.getEntries()) + "]\n");
+          + "[" + (aclMap == null ? "null" : aclMap) + "]\n");
     }
     return f;
   }

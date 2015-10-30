@@ -28,7 +28,7 @@
     <format>tar.gz</format>
   </formats>
 
-  <baseDirectory>apache-sentry-${project.version}-src</baseDirectory>
+  <baseDirectory>mapr-sentry-${project.version}-src</baseDirectory>
 
   <fileSets>
     <fileSet>
