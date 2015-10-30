@@ -92,6 +92,7 @@ then
   for f in ${SENTRY_HOME}/lib/plugins/*.jar; do
     HADOOP_CLASSPATH=${HADOOP_CLASSPATH}:${f}
   done
+  HADOOP_CLASSPATH="$HADOOP_CLASSPATH  ${SENTRY_HOME}/conf"
   exec $HADOOP jar ${SENTRY_HOME}/lib/${_CMD_JAR} org.apache.sentry.SentryMain ${args[@]}
 else
   exec ${SENTRY_HOME}/bin/config_tool ${args[@]}

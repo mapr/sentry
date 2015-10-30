@@ -53,6 +53,8 @@ import org.apache.sentry.provider.db.service.thrift.SentryMetricsServletContextL
 import org.apache.sentry.provider.db.service.thrift.SentryWebServer;
 import org.apache.sentry.service.thrift.ServiceConstants.ConfUtilties;
 import org.apache.sentry.service.thrift.ServiceConstants.ServerConfig;
+import org.apache.sentry.service.thrift.shim.HadoopThriftAuthBridge;
+import org.apache.sentry.service.thrift.shim.ShimLoader;
 import org.apache.thrift.TMultiplexedProcessor;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.server.TServer;
@@ -81,6 +83,7 @@ public class SentryService implements Callable {
   private final InetSocketAddress address;
   private final int maxThreads;
   private final int minThreads;
+  private boolean isSecured;
   private boolean kerberos;
   private final String principal;
   private final String[] principalParts;
@@ -105,6 +108,8 @@ public class SentryService implements Callable {
         conf.get(ServerConfig.RPC_ADDRESS, ServerConfig.RPC_ADDRESS_DEFAULT),
         port);
     LOGGER.info("Configured on address " + address);
+    isSecured = !ServerConfig.SECURITY_MODE_NONE.equalsIgnoreCase(
+            conf.get(ServerConfig.SECURITY_MODE, ServerConfig.SECURITY_MODE_NONE).trim());
     kerberos = ServerConfig.SECURITY_MODE_KERBEROS.equalsIgnoreCase(
         conf.get(ServerConfig.SECURITY_MODE, ServerConfig.SECURITY_MODE_KERBEROS).trim());
     maxThreads = conf.getInt(ServerConfig.RPC_MAX_THREADS,
@@ -132,9 +137,9 @@ public class SentryService implements Callable {
       Preconditions.checkState(keytabFile.isFile() && keytabFile.canRead(),
           "Keytab " + keytab + " does not exist or is not readable.");
     } else {
-      principal = null;
+      principal = "";
       principalParts = null;
-      keytab = null;
+      keytab = "";
     }
     serviceExecutor = Executors.newSingleThreadExecutor(new ThreadFactory() {
       private int count = 0;
@@ -149,6 +154,11 @@ public class SentryService implements Callable {
     status = Status.NOT_STARTED;
   }
 
+  /**
+   * TODO: Should be added correct launch of TGT renewing thread (see SENTRY-428)
+   * @return
+   * @throws Exception
+   */
   @Override
   public String call() throws Exception {
     SentryKerberosContext kerberosContext = null;
@@ -211,14 +221,11 @@ public class SentryService implements Callable {
       throw new IllegalStateException(
           "Failed to register any processors from " + processorFactories);
     }
+    HadoopThriftAuthBridge hadoopThriftAuthBridge = ShimLoader.getHadoopThriftAuthBridge();
     TServerTransport serverTransport = new TServerSocket(address);
-    TTransportFactory transportFactory = null;
-    if (kerberos) {
-      TSaslServerTransport.Factory saslTransportFactory = new TSaslServerTransport.Factory();
-      saslTransportFactory.addServerDefinition(AuthMethod.KERBEROS
-          .getMechanismName(), principalParts[0], principalParts[1],
-          ServerConfig.SASL_PROPERTIES, new GSSCallback(conf));
-      transportFactory = saslTransportFactory;
+    TTransportFactory transportFactory;
+    if (isSecured) {
+      transportFactory = hadoopThriftAuthBridge.createServer(keytab, principal).createTransportFactory(conf);
     } else {
       transportFactory = new TTransportFactory();
     }
