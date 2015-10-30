@@ -43,9 +43,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 
-public class TestSentryAuthorizationProvider {
-  private static final String DFS_NAMENODE_AUTHORIZATION_PROVIDER_KEY =
-      "dfs.namenode.authorization.provider.class";
+public class TestSentryINodeAttributesProvider {
 
   private MiniDFSCluster miniDFS;
   private UserGroupInformation admin;
@@ -60,8 +58,8 @@ public class TestSentryAuthorizationProvider {
         System.setProperty(MiniDFSCluster.PROP_TEST_BUILD_DATA, "target/test/data");
         Configuration conf = new HdfsConfiguration();
         conf.setBoolean("sentry.authorization-provider.include-hdfs-authz-as-acl", true);
-        conf.set(DFS_NAMENODE_AUTHORIZATION_PROVIDER_KEY,
-            MockSentryAuthorizationProvider.class.getName());
+        conf.set(DFSConfigKeys.DFS_NAMENODE_INODE_ATTRIBUTES_PROVIDER_KEY,
+            MockSentryINodeAttributesProvider.class.getName());
         conf.setBoolean(DFSConfigKeys.DFS_NAMENODE_ACLS_ENABLED_KEY, true);
         EditLogFileOutputStream.setShouldSkipFsyncForTesting(true);
         miniDFS = new MiniDFSCluster.Builder(conf).build();

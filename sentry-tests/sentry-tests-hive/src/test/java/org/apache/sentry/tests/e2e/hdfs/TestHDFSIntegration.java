@@ -75,7 +75,7 @@ import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.sentry.binding.hive.SentryHiveAuthorizationTaskFactoryImpl;
 import org.apache.sentry.binding.hive.conf.HiveAuthzConf;
 import org.apache.sentry.hdfs.SentryAuthorizationConstants;
-import org.apache.sentry.hdfs.SentryAuthorizationProvider;
+import org.apache.sentry.hdfs.SentryINodeAttributesProvider;
 import org.apache.sentry.provider.db.SimpleDBProviderBackend;
 import org.apache.sentry.provider.file.LocalGroupResourceAuthorizationProvider;
 import org.apache.sentry.provider.file.PolicyFile;
@@ -352,8 +352,8 @@ public class TestHDFSIntegration {
       public Void run() throws Exception {
         System.setProperty(MiniDFSCluster.PROP_TEST_BUILD_DATA, "target/test/data");
         Configuration conf = new HdfsConfiguration();
-        conf.set(DFS_NAMENODE_AUTHORIZATION_PROVIDER_KEY,
-            SentryAuthorizationProvider.class.getName());
+        conf.set(DFSConfigKeys.DFS_NAMENODE_INODE_ATTRIBUTES_PROVIDER_KEY,
+            SentryINodeAttributesProvider.class.getName());
         conf.setBoolean(DFSConfigKeys.DFS_NAMENODE_ACLS_ENABLED_KEY, true);
         conf.setInt(DFSConfigKeys.DFS_REPLICATION_KEY, 1);
         File dfsDir = assertCreateDir(new File(baseDir, "dfs"));
@@ -542,7 +542,8 @@ public class TestHDFSIntegration {
     stmt.execute("create role admin_role");
     stmt.execute("grant role admin_role to group hive");
     stmt.execute("grant all on server server1 to role admin_role");
-    stmt.execute("create table p1 (s string) partitioned by (month int, day int)");
+    stmt.execute("create table p1 (s string) partitioned by (month int, day " +
+            "int)");
     stmt.execute("alter table p1 add partition (month=1, day=1)");
     stmt.execute("alter table p1 add partition (month=1, day=2)");
     stmt.execute("alter table p1 add partition (month=2, day=1)");
@@ -579,22 +580,23 @@ public class TestHDFSIntegration {
 
     // Verify default db is STILL inaccessible after grants but tables are fine
     verifyOnPath("/user/hive/warehouse", null, "hbase", false);
-    verifyOnAllSubDirs("/user/hive/warehouse/p1", FsAction.READ_EXECUTE, "hbase", true);
+    verifyOnAllSubDirs("/user/hive/warehouse/p1", FsAction.READ_EXECUTE,
+            "hbase", true);
 
     adminUgi.doAs(new PrivilegedExceptionAction<Void>() {
       @Override
       public Void run() throws Exception {
         // Simulate hdfs dfs -setfacl -m <aclantry> <path>
         AclStatus existing =
-            miniDFS.getFileSystem()
-            .getAclStatus(new Path("/user/hive/warehouse/p1"));
+                miniDFS.getFileSystem()
+                        .getAclStatus(new Path("/user/hive/warehouse/p1"));
         ArrayList<AclEntry> newEntries =
-            new ArrayList<AclEntry>(existing.getEntries());
+                new ArrayList<AclEntry>(existing.getEntries());
         newEntries.add(AclEntry.parseAclEntry("user::---", true));
         newEntries.add(AclEntry.parseAclEntry("group:bla:rwx", true));
         newEntries.add(AclEntry.parseAclEntry("other::---", true));
         miniDFS.getFileSystem().setAcl(new Path("/user/hive/warehouse/p1"),
-            newEntries);
+                newEntries);
         return null;
       }
     });
@@ -607,7 +609,8 @@ public class TestHDFSIntegration {
     verifyOnPath("/user/hive/warehouse", FsAction.READ_EXECUTE, "hbase", true);
 
     // Verify default db grants are propagated to the tables
-    verifyOnAllSubDirs("/user/hive/warehouse/p1", FsAction.READ_EXECUTE, "hbase", true);
+    verifyOnAllSubDirs("/user/hive/warehouse/p1", FsAction.READ_EXECUTE,
+            "hbase", true);
 
     // Verify default db revokes work
     stmt.execute("revoke select on database default from role p1_admin");
@@ -618,15 +621,19 @@ public class TestHDFSIntegration {
     verifyOnAllSubDirs("/user/hive/warehouse/p1", FsAction.ALL, "hbase", true);
 
     stmt.execute("revoke select on table p1 from role p1_admin");
-    verifyOnAllSubDirs("/user/hive/warehouse/p1", FsAction.WRITE_EXECUTE, "hbase", true);
+    verifyOnAllSubDirs("/user/hive/warehouse/p1", FsAction.WRITE_EXECUTE,
+            "hbase", true);
 
     // Verify table rename works
     stmt.execute("alter table p1 rename to p3");
-    verifyOnAllSubDirs("/user/hive/warehouse/p3", FsAction.WRITE_EXECUTE, "hbase", true);
+    verifyOnAllSubDirs("/user/hive/warehouse/p3", FsAction.WRITE_EXECUTE,
+            "hbase", true);
 
-    stmt.execute("alter table p3 partition (month=1, day=1) rename to partition (month=1, day=3)");
+    stmt.execute("alter table p3 partition (month=1, day=1) rename to " +
+            "partition (month=1, day=3)");
     verifyOnAllSubDirs("/user/hive/warehouse/p3", FsAction.WRITE_EXECUTE, "hbase", true);
-    verifyOnAllSubDirs("/user/hive/warehouse/p3/month=1/day=3", FsAction.WRITE_EXECUTE, "hbase", true);
+    verifyOnAllSubDirs("/user/hive/warehouse/p3/month=1/day=3", FsAction
+            .WRITE_EXECUTE, "hbase", true);
 
     //TODO: SENTRY-795: HDFS permissions do not sync when Sentry restarts in HA mode.
     if(!testSentryHA) {
@@ -1134,7 +1141,7 @@ public class TestHDFSIntegration {
     f1.flush();
     f1.close();
     miniDFS.getFileSystem().setOwner(new Path(path + "/stuff.txt"), "asuresh", "supergroup");
-    miniDFS.getFileSystem().setPermission(new Path(path + "/stuff.txt"), FsPermission.valueOf("-rwxrwx---"));
+    miniDFS.getFileSystem().setPermission(new Path(path + "/stuff.txt"), FsPermission.valueOf("-rwxrwxrwx"));
   }
 
   private void verifyHDFSandMR(Statement stmt) throws Throwable {
@@ -1144,7 +1151,8 @@ public class TestHDFSIntegration {
       @Override
       public Void run() throws Exception {
         try {
-          miniDFS.getFileSystem().open(new Path("/user/hive/warehouse/p1/month=1/day=1/f1.txt"));
+          Path p = new Path("/user/hive/warehouse/p1/month=1/day=1/f1.txt");
+          miniDFS.getFileSystem().open(p);
           Assert.fail("Should not be allowed !!");
         } catch (Exception e) {
           Assert.assertEquals("Wrong Error : " + e.getMessage(), true, e.getMessage().contains("Permission denied: user=hbase"));
