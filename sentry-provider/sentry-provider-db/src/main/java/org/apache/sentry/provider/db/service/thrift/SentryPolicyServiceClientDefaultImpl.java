@@ -47,6 +47,8 @@ import org.apache.sentry.service.thrift.ServiceConstants.PrivilegeScope;
 import org.apache.sentry.service.thrift.ServiceConstants.ServerConfig;
 import org.apache.sentry.service.thrift.ServiceConstants.ThriftConstants;
 import org.apache.sentry.service.thrift.Status;
+import org.apache.sentry.service.thrift.shim.HadoopThriftAuthBridge;
+import org.apache.sentry.service.thrift.shim.ShimLoader;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TMultiplexedProtocol;
@@ -75,7 +77,7 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
   private final Configuration conf;
   private final InetSocketAddress serverAddress;
   private final boolean kerberos;
-  private final String[] serverPrincipalParts;
+  private String[] serverPrincipalParts;
   private SentryPolicyService.Client client;
   private TTransport transport;
   private int connectionTimeout;
@@ -139,11 +141,13 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
                            + ClientConfig.SERVER_RPC_ADDRESS + " is required"), conf.getInt(
                            ClientConfig.SERVER_RPC_PORT, ClientConfig.SERVER_RPC_PORT_DEFAULT));
     this.connectionTimeout = conf.getInt(ClientConfig.SERVER_RPC_CONN_TIMEOUT,
-                                         ClientConfig.SERVER_RPC_CONN_TIMEOUT_DEFAULT);
+            ClientConfig.SERVER_RPC_CONN_TIMEOUT_DEFAULT);
     kerberos = ServerConfig.SECURITY_MODE_KERBEROS.equalsIgnoreCase(
         conf.get(ServerConfig.SECURITY_MODE, ServerConfig.SECURITY_MODE_KERBEROS).trim());
+    HadoopThriftAuthBridge hadoopThriftAuthBridge = ShimLoader.getHadoopThriftAuthBridge();
     transport = new TSocket(serverAddress.getHostName(),
         serverAddress.getPort(), connectionTimeout);
+    boolean wrapUgi = "true".equalsIgnoreCase(conf.get(ServerConfig.SECURITY_USE_UGI_TRANSPORT, "true"));
     if (kerberos) {
       String serverPrincipal = Preconditions.checkNotNull(conf.get(ServerConfig.PRINCIPAL), ServerConfig.PRINCIPAL + " is required");
 
@@ -154,13 +158,10 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
       serverPrincipalParts = SaslRpcServer.splitKerberosName(serverPrincipal);
       Preconditions.checkArgument(serverPrincipalParts.length == 3,
            "Kerberos principal should have 3 parts: " + serverPrincipal);
-      boolean wrapUgi = "true".equalsIgnoreCase(conf
-          .get(ServerConfig.SECURITY_USE_UGI_TRANSPORT, "true"));
-      transport = new UgiSaslClientTransport(AuthMethod.KERBEROS.getMechanismName(),
-          null, serverPrincipalParts[0], serverPrincipalParts[1],
-          ClientConfig.SASL_PROPERTIES, null, transport, wrapUgi);
+      transport = hadoopThriftAuthBridge.createClient().createClientTransport(serverPrincipal,
+           serverAddress.getHostName(), transport, wrapUgi);
     } else {
-      serverPrincipalParts = null;
+      transport = hadoopThriftAuthBridge.createClient().createClientTransport(null, null, transport, wrapUgi);
     }
     try {
       transport.open();
