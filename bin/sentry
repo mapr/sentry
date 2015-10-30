@@ -24,16 +24,33 @@ if [[ -z $SENTRY_HOME ]] ; then
   export SENTRY_HOME=$myhome
 fi
 
-# check for hadoop in the path
-HADOOP_IN_PATH=`which hadoop 2>/dev/null`
-if [ -f ${HADOOP_IN_PATH} ]; then
-  HADOOP_DIR=`dirname "$HADOOP_IN_PATH"`/..
-fi
-# HADOOP_HOME env variable overrides hadoop in the path
-HADOOP_HOME=${HADOOP_HOME:-${HADOOP_PREFIX:-$HADOOP_DIR}}
-if [ "$HADOOP_HOME" == "" ]; then
-  echo "Cannot find hadoop installation: \$HADOOP_HOME or \$HADOOP_PREFIX must be set or hadoop must be in the path";
-  exit 4;
+MAPR_HOME_DIR="/opt/mapr"
+MAPR_CONF_DIR=${MAPR_HOME_DIR}/conf
+MAPR_LIB_DIR=${MAPR_HOME_DIR}/lib
+
+env=${MAPR_CONF_DIR}/env.sh
+[ -f $env ] && . $env
+
+if [[ ${HADOOP_HOME} = "" ]]; then
+  BASEMAPR=${MAPR_HOME:-/opt/mapr}
+  if [ -f ${BASEMAPR}/conf/hadoop_version ]; then
+      hadoop_mode=`cat ${BASEMAPR}/conf/hadoop_version | grep default_mode | cut -d '=' -f 2`
+	  if [ "$hadoop_mode" = "yarn" ]; then
+		version=`cat ${BASEMAPR}/conf/hadoop_version | grep yarn_version | cut -d '=' -f 2`
+		HADOOP_VERSION="hadoop-$version"
+	  elif [ "$hadoop_mode" = "classic" ]; then
+		version=`cat ${BASEMAPR}/conf/hadoop_version | grep classic_version | cut -d '=' -f 2`
+		HADOOP_VERSION="hadoop-$version"
+	else
+		echo 'Unknown hadoop version'
+	fi
+  else
+    CMD="hadoop version"
+    res=`eval $CMD`
+    HADOOP_VERSION=`readlink \`which hadoop\` | awk -F "/" '{print$5}'`
+    version=`echo ${HADOOP_VERSION} | cut -d'-' -f 2`
+  fi
+  export HADOOP_HOME=${BASEMAPR}/hadoop/${HADOOP_VERSION}
 fi
 
 HADOOP=$HADOOP_HOME/bin/hadoop
@@ -60,7 +77,7 @@ while [ $# -gt 0 ]; do    # Until you run out of parameters . . .
       ;;
   esac
 done
-
+export HADOOP_OPTS="$HADOOP_OPTS ${MAPR_ECOSYSTEM_SERVER_LOGIN_OPTS}"
 export _CMD_JAR=sentry-core-common-*.jar
 for f in ${SENTRY_HOME}/lib/*.jar; do
   HADOOP_CLASSPATH=${HADOOP_CLASSPATH}:${f}

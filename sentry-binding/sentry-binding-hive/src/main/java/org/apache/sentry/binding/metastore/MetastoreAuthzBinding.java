@@ -337,16 +337,22 @@ public class MetastoreAuthzBinding extends MetaStorePreEventListener {
     }
   }
 
+  /**
+   * TODO Temporary changes! Need to be refactored!
+   * @param context
+   * @throws InvalidOperationException
+   * @throws MetaException
+   */
   private void authorizeDropPartition(PreDropPartitionEvent context)
       throws InvalidOperationException, MetaException {
     authorizeMetastoreAccess(
         HiveOperation.ALTERTABLE_DROPPARTS,
         new HierarcyBuilder().addTableToOutput(getAuthServer(),
-            context.getPartition().getDbName(),
-            context.getPartition().getTableName()).build(),
+            context.getPartitionIterator().next().getDbName(),
+            context.getPartitionIterator().next().getTableName()).build(),
         new HierarcyBuilder().addTableToOutput(getAuthServer(),
-            context.getPartition().getDbName(),
-            context.getPartition().getTableName()).build());
+            context.getPartitionIterator().next().getDbName(),
+            context.getPartitionIterator().next().getTableName()).build());
   }
 
   private void authorizeAlterPartition(PreAlterPartitionEvent context)
