@@ -587,8 +587,6 @@ limitations under the License.
     <module>sentry-binding</module>
     <module>sentry-provider</module>
     <module>sentry-policy</module>
-    <module>sentry-tests</module>
-    <module>sentry-hdfs</module>
     <module>sentry-solr</module>
     <module>sentry-dist</module>
   </modules>
@@ -804,10 +802,17 @@ limitations under the License.
   </build>
 
   <repositories>
-    <repository>
-      <id>apache</id>
-      <url>https://repository.apache.org/content/repositories/</url>
-    </repository>
+  <repository>
+    <id>mapr.repo</id>
+    <url>http://repository.mapr.com/maven/</url>
+    <name>MapR Repositories</name>
+    <releases>
+      <enabled>true</enabled>
+    </releases>
+    <snapshots>
+      <enabled>true</enabled>
+    </snapshots>
+  </repository>
   </repositories>
 
 </project>
