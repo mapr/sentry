@@ -71,7 +71,8 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
   private final Configuration conf;
   private final InetSocketAddress serverAddress;
   private final boolean kerberos;
-  private String[] serverPrincipalParts;
+    private final boolean other;
+    private String[] serverPrincipalParts;
   private SentryPolicyService.Client client;
   private TTransport transport;
   private int connectionTimeout;
@@ -137,8 +138,12 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
     this.connectionTimeout = conf.getInt(ClientConfig.SERVER_RPC_CONN_TIMEOUT,
             ClientConfig.SERVER_RPC_CONN_TIMEOUT_DEFAULT);
     kerberos = ServerConfig.SECURITY_MODE_KERBEROS.equalsIgnoreCase(
-        conf.get(ServerConfig.SECURITY_MODE, ServerConfig.SECURITY_MODE_KERBEROS).trim());
-    HadoopThriftAuthBridge hadoopThriftAuthBridge = ShimLoader.getHadoopThriftAuthBridge();
+            conf.get(ServerConfig.SECURITY_MODE, ServerConfig.SECURITY_MODE_KERBEROS).trim());
+
+      other = ServerConfig.SECURITY_MODE_OTHER.equalsIgnoreCase(conf.get(ServerConfig.SECURITY_MODE, ServerConfig.SECURITY_MODE_KERBEROS).trim());
+      System.setProperty(ServerConfig.SECURITY_MODE, conf.get(ServerConfig.SECURITY_MODE, ServerConfig.SECURITY_MODE_KERBEROS));
+
+      HadoopThriftAuthBridge hadoopThriftAuthBridge = ShimLoader.getHadoopThriftAuthBridge();
     transport = new TSocket(serverAddress.getHostName(),
         serverAddress.getPort(), connectionTimeout);
     boolean wrapUgi = "true".equalsIgnoreCase(conf.get(ServerConfig.SECURITY_USE_UGI_TRANSPORT, "true"));
@@ -155,6 +160,7 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
       transport = hadoopThriftAuthBridge.createClient().createClientTransport(serverPrincipal,
            serverAddress.getHostName(), transport, wrapUgi);
     } else {
+        if (other)
       transport = hadoopThriftAuthBridge.createClient().createClientTransport(null, null, transport, wrapUgi);
     }
     try {

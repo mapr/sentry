@@ -86,14 +86,10 @@ public class HadoopThriftAuthBridge25 extends HadoopThriftAuthBridge20 {
 
         @Override
         public TTransport createClientTransport(String principalConfig, String host, TTransport underlyingTransport, boolean wrapUgi) throws IOException {
+            String authTypeStr = System.getProperty(ServiceConstants.ServerConfig.SECURITY_MODE);
 
-            Configuration conf = new Configuration();
-            conf.addDefaultResource("sentry-site.xml");
-            // if uses SASL, authType must be only KERBEROS or MapRSasl
-            // by default uses MapRSasl
-            String authTypeStr = conf.get(ServiceConstants.ServerConfig.SECURITY_MODE);
-            if (authTypeStr == null || authTypeStr.equalsIgnoreCase("MAPRSASL")) {
-                authTypeStr = "CUSTOM";
+            if (authTypeStr == null || authTypeStr.equalsIgnoreCase("other")) {
+                authTypeStr = "MAPRSASL";
             }
 
             RpcAuthMethod rpcAuthMethod = RpcAuthRegistry.getAuthMethod(authTypeStr.toUpperCase(Locale.ENGLISH));
