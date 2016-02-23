@@ -62,9 +62,9 @@ limitations under the License.
     <commons.logging.version>1.2</commons.logging.version>
     <bonecp.version>0.7.1.RELEASE</bonecp.version>
     <datanucleus.maven.plugin.version>3.3.0-release</datanucleus.maven.plugin.version>
-    <datanucleus-api-jdo.version>3.2.6</datanucleus-api-jdo.version>
-    <datanucleus-core.version>3.2.12</datanucleus-core.version>
-    <datanucleus-rdbms.version>3.2.12</datanucleus-rdbms.version>
+    <datanucleus-api-jdo.version>4.2.1</datanucleus-api-jdo.version>
+    <datanucleus-core.version>4.1.6</datanucleus-core.version>
+    <datanucleus-rdbms.version>4.1.7</datanucleus-rdbms.version>
     <jdo-api.version>3.0.1</jdo-api.version>
     <derby.version>10.10.2.0</derby.version>
     <commons-cli.version>1.2</commons-cli.version>
