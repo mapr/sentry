@@ -31,7 +31,6 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.SaslRpcServer;
-import org.apache.hadoop.security.SaslRpcServer.AuthMethod;
 import org.apache.hadoop.security.SecurityUtil;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.sentry.SentryUserException;
@@ -77,6 +76,7 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
   private final Configuration conf;
   private final InetSocketAddress serverAddress;
   private final boolean kerberos;
+  private final boolean other;
   private String[] serverPrincipalParts;
   private SentryPolicyService.Client client;
   private TTransport transport;
@@ -137,13 +137,15 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
     this.conf = conf;
     Preconditions.checkNotNull(this.conf, "Configuration object cannot be null");
     this.serverAddress = NetUtils.createSocketAddr(Preconditions.checkNotNull(
-                           conf.get(ClientConfig.SERVER_RPC_ADDRESS), "Config key "
-                           + ClientConfig.SERVER_RPC_ADDRESS + " is required"), conf.getInt(
-                           ClientConfig.SERVER_RPC_PORT, ClientConfig.SERVER_RPC_PORT_DEFAULT));
+            conf.get(ClientConfig.SERVER_RPC_ADDRESS), "Config key "
+                    + ClientConfig.SERVER_RPC_ADDRESS + " is required"), conf.getInt(
+            ClientConfig.SERVER_RPC_PORT, ClientConfig.SERVER_RPC_PORT_DEFAULT));
     this.connectionTimeout = conf.getInt(ClientConfig.SERVER_RPC_CONN_TIMEOUT,
             ClientConfig.SERVER_RPC_CONN_TIMEOUT_DEFAULT);
     kerberos = ServerConfig.SECURITY_MODE_KERBEROS.equalsIgnoreCase(
-        conf.get(ServerConfig.SECURITY_MODE, ServerConfig.SECURITY_MODE_KERBEROS).trim());
+            conf.get(ServerConfig.SECURITY_MODE, ServerConfig.SECURITY_MODE_KERBEROS).trim());
+    other = ServerConfig.SECURITY_MODE_OTHER.equalsIgnoreCase(conf.get(ServerConfig.SECURITY_MODE, ServerConfig.SECURITY_MODE_KERBEROS).trim());
+    System.setProperty(ServerConfig.SECURITY_MODE, conf.get(ServerConfig.SECURITY_MODE, ServerConfig.SECURITY_MODE_KERBEROS));
     HadoopThriftAuthBridge hadoopThriftAuthBridge = ShimLoader.getHadoopThriftAuthBridge();
     transport = new TSocket(serverAddress.getHostName(),
         serverAddress.getPort(), connectionTimeout);
@@ -161,7 +163,9 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
       transport = hadoopThriftAuthBridge.createClient().createClientTransport(serverPrincipal,
            serverAddress.getHostName(), transport, wrapUgi);
     } else {
-      transport = hadoopThriftAuthBridge.createClient().createClientTransport(null, null, transport, wrapUgi);
+        if (other) {
+            transport = hadoopThriftAuthBridge.createClient().createClientTransport(null, null, transport, wrapUgi);
+        }
     }
     try {
       transport.open();
