@@ -55,8 +55,17 @@ public class SentryKerberosContext implements Runnable {
   }
 
   public void loginWithNewContext() throws LoginException {
+    String jaasConfName = System.getProperty("hadoop.login");
+    if (jaasConfName == null) {
+      jaasConfName = "default";
+    }
+    String userJAASConfName = jaasConfName.startsWith("hadoop_")
+            ? jaasConfName : "hadoop_" + jaasConfName;
+    String serviceJAASConfName = userJAASConfName.endsWith("_keytab")
+            ? userJAASConfName : userJAASConfName + "_keytab";
+
     logoutSubject();
-    loginContext = new LoginContext("", subject, null, kerberosConfig);
+    loginContext = new LoginContext(serviceJAASConfName, subject, null, kerberosConfig);
     loginContext.login();
     subject = loginContext.getSubject();
   }
