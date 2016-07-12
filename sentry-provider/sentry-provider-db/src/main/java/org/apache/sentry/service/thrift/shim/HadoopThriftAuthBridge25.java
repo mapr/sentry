@@ -20,12 +20,10 @@ package org.apache.sentry.service.thrift.shim;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.SaslRpcServer;
-import org.apache.hadoop.security.SecurityUtil;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.rpcauth.RpcAuthMethod;
 import org.apache.hadoop.security.rpcauth.RpcAuthRegistry;
 import org.apache.sentry.provider.db.service.thrift.SentryPolicyServiceClientDefaultImpl;
-import org.apache.sentry.service.thrift.GSSCallback;
 import org.apache.sentry.service.thrift.ServiceConstants;
 import org.apache.thrift.transport.*;
 
@@ -86,14 +84,9 @@ public class HadoopThriftAuthBridge25 extends HadoopThriftAuthBridge20 {
 
         @Override
         public TTransport createClientTransport(String principalConfig, String host, TTransport underlyingTransport, boolean wrapUgi) throws IOException {
-
-            Configuration conf = new Configuration();
-            conf.addDefaultResource("sentry-site.xml");
-            // if uses SASL, authType must be only KERBEROS or MapRSasl
-            // by default uses MapRSasl
-            String authTypeStr = conf.get(ServiceConstants.ServerConfig.SECURITY_MODE);
-            if (authTypeStr == null || authTypeStr.equalsIgnoreCase("MAPRSASL")) {
-                authTypeStr = "CUSTOM";
+            String authTypeStr = System.getProperty(ServiceConstants.ServerConfig.SECURITY_MODE);
+            if (authTypeStr == null || authTypeStr.equalsIgnoreCase("other")) {
+                authTypeStr = "MAPRSASL";
             }
 
             RpcAuthMethod rpcAuthMethod = RpcAuthRegistry.getAuthMethod(authTypeStr.toUpperCase(Locale.ENGLISH));
