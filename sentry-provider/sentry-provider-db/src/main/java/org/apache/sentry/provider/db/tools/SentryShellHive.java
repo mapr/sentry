@@ -40,9 +40,10 @@ public class SentryShellHive extends SentryShellCommon {
 
   public void run() throws Exception {
     Command command = null;
-    SentryPolicyServiceClient client = SentryServiceClientFactory.create(getSentryConf());
     UserGroupInformation ugi = UserGroupInformation.getLoginUser();
     String requestorName = ugi.getShortUserName();
+    SentryPolicyServiceClient client = SentryServiceClientFactory.create(getSentryConf());
+
 
     if (isCreateRole) {
       command = new CreateRoleCmd(roleName);
