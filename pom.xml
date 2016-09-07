@@ -646,15 +646,6 @@ limitations under the License.
             <excludeRoot>${basedir}/src/main/generated</excludeRoot>
           </excludeRoots>
         </configuration>
-        <executions>
-          <execution>
-            <id>validate</id>
-            <phase>validate</phase>
-            <goals>
-              <goal>check</goal>
-            </goals>
-          </execution>
-        </executions>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
