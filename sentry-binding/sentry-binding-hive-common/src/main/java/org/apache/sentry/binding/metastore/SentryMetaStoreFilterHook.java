@@ -189,7 +189,7 @@ public class SentryMetaStoreFilterHook implements MetaStoreFilterHook {
   }
 
   private HiveConf getConf() {
-    return SessionState.get().getConf();
+    return SessionState.getSessionConf();
   }
 
   private void close() {
