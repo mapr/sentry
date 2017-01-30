@@ -809,14 +809,7 @@ public abstract class HiveAuthzBindingHookBase extends AbstractSemanticAnalyzerH
     }
   }
 
-  protected HiveOperation getCurrentHiveStmtOp() {
-    SessionState sessState = SessionState.get();
-    if (sessState == null) {
-      // TODO: Warn
-      return null;
-    }
-    return sessState.getHiveOperation();
-  }
+
 
   protected Subject getCurrentSubject(HiveSemanticAnalyzerHookContext context) {
     // Extract the username from the hook context
