@@ -43,6 +43,7 @@ import org.apache.sentry.binding.hive.conf.HiveAuthzConf;
 import org.apache.sentry.binding.hive.v2.HiveAuthzPrivilegesMapV2;
 import org.apache.sentry.binding.hive.v2.util.SentryAuthorizerUtil;
 import org.apache.sentry.binding.hive.v2.util.SimpleSemanticAnalyzer;
+import org.apache.hadoop.hive.ql.parse.SemanticException;
 import org.apache.sentry.core.common.Subject;
 import org.apache.sentry.core.model.db.AccessURI;
 import org.apache.sentry.core.model.db.Column;
@@ -475,4 +476,16 @@ public class DefaultSentryValidator extends SentryHiveAuthorizationValidator {
     }
     return filteredResult;
   }
+
+    @Override
+    public boolean needTransform() {
+        return false;
+    }
+
+    @Override
+    public List<HivePrivilegeObject> applyRowFilterAndColumnMasking(HiveAuthzContext context,
+                                                                    List<HivePrivilegeObject> privObjs) throws SemanticException {
+        return null;
+    }
+
 }

@@ -517,7 +517,7 @@ public class DefaultSentryAccessController extends SentryHiveAccessController {
   private void executeOnFailureHooks(HiveOperation hiveOp, SentryAccessDeniedException e)
       throws HiveAccessControlException {
     SentryOnFailureHookContext hookCtx =
-        new SentryOnFailureHookContextImpl(SessionState.get().getCmd(), null, null, hiveOp, null,
+        new SentryOnFailureHookContextImpl(hiveOp.toString(), null, null, hiveOp, null,
             null, null, null, authenticator.getUserName(), null, new AuthorizationException(e),
             authzConf);
     SentryAuthorizerUtil.executeOnFailureHooks(hookCtx, authzConf);
