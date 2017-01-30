@@ -34,6 +34,8 @@ import org.apache.hadoop.hive.ql.security.authorization.plugin.HivePrivilegeObje
 import org.apache.hadoop.hive.ql.security.authorization.plugin.HivePrivilegeObject.HivePrivilegeObjectType;
 import org.apache.hadoop.hive.ql.security.authorization.plugin.HiveRoleGrant;
 import org.apache.sentry.binding.hive.v2.SentryHivePrivilegeObject;
+import org.apache.hadoop.hive.ql.parse.SemanticException;
+
 
 /**
  * Convenience implementation of HiveAuthorizer. You can customize the behavior by passing different
@@ -189,4 +191,15 @@ public class SentryHiveAuthorizer implements HiveAuthorizer {
       return super.getHivePrivilegeObject(privSubjectDesc);
     }
   }
+
+    @Override
+    public boolean needTransform() {
+        return false;
+    }
+
+    @Override
+    public List<HivePrivilegeObject> applyRowFilterAndColumnMasking(HiveAuthzContext context,
+                                                                    List<HivePrivilegeObject> privObjs) throws SemanticException {
+        return null;
+    }
 }
