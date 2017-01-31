@@ -142,17 +142,17 @@ limitations under the License.
       <artifactId>jdo-api</artifactId>
     </dependency>
     <dependency>
-      <groupId>com.codahale.metrics</groupId>
+      <groupId>io.dropwizard.metrics</groupId>
       <artifactId>metrics-core</artifactId>
       <version>${metrics.version}</version>
     </dependency>
     <dependency>
-      <groupId>com.codahale.metrics</groupId>
+      <groupId>io.dropwizard.metrics</groupId>
       <artifactId>metrics-servlets</artifactId>
       <version>${metrics.version}</version>
     </dependency>
     <dependency>
-      <groupId>com.codahale.metrics</groupId>
+      <groupId>io.dropwizard.metrics</groupId>
       <artifactId>metrics-jvm</artifactId>
       <version>${metrics.version}</version>
     </dependency>
