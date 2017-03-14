@@ -128,7 +128,8 @@ public class DBWildcardPrivilege implements Privilege {
     } else if(policyPart.getKey().equalsIgnoreCase(AuthorizableType.URI.name())) {
       return impliesURI(policyPart.getValue(), requestPart.getValue());
     }
-    return policyPart.equals(requestPart);
+    KeyValue normPart = new KeyValue(requestPart.getKey(), requestPart.getValue().replace("`", ""));
+    return policyPart.equals(normPart);
   }
 
   @VisibleForTesting
