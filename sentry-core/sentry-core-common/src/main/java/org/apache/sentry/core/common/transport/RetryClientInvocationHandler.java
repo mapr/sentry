@@ -49,16 +49,20 @@ import java.lang.reflect.Method;
  * TODO(kalyan) allow multiple client connections using <code>PoolClientInvocationHandler</code>
  */
 
-public class RetryClientInvocationHandler extends SentryClientInvocationHandler {
+public final class RetryClientInvocationHandler extends SentryClientInvocationHandler {
   private static final Logger LOGGER =
     LoggerFactory.getLogger(RetryClientInvocationHandler.class);
-  private SentryServiceClient client = null;
+  private final int retries;
+  private final SentrySocket client;
 
   /**
    * Initialize the sentry configurations, including rpc retry count and client connection
    * configs for SentryPolicyServiceClientDefaultImpl
    */
-  public RetryClientInvocationHandler(Configuration conf, SentryServiceClient clientObject) {
+  public RetryClientInvocationHandler(Configuration conf,
+                                      SentryClientTransportConfigInterface transportConfig,
+                                      SentrySocket clientObject) {
+    retries = transportConfig.getSentryRpcRetryTotal(conf);
     Preconditions.checkNotNull(conf, "Configuration object cannot be null");
     client = clientObject;
   }
@@ -77,18 +81,17 @@ public class RetryClientInvocationHandler extends SentryClientInvocationHandler 
   synchronized public Object invokeImpl(Object proxy, Method method, Object[] args) throws Exception {
     int retryCount = 0;
     Exception lastExc = null;
-    boolean tryAlternateServer = false;
 
-    while (retryCount < client.getRetryCount()) {
+    while (retryCount < retries) {
       // Connect to a sentry server if not connected yet.
       try {
-        client.connectWithRetry(tryAlternateServer);
+        client.connect();
       } catch (IOException e) {
         // Increase the retry num
         // Retry when the exception is caused by connection problem.
         retryCount++;
         lastExc = e;
-        close();
+        client.close();
         continue;
       }
 
@@ -108,7 +111,6 @@ public class RetryClientInvocationHandler extends SentryClientInvocationHandler 
             // Retry when the exception is caused by connection problem.
             lastExc = new TTransportException(sentryTargetException);
             LOGGER.error("Got TTransportException when do the thrift call ", lastExc);
-            tryAlternateServer = true;
             // Closing the thrift client on TTransportException. New client object is
             // created using new socket when an attempt to reconnect is made.
             close();
@@ -131,9 +133,9 @@ public class RetryClientInvocationHandler extends SentryClientInvocationHandler 
     }
 
     // Throw the exception as reaching the max rpc retry num.
-    LOGGER.error(String.format("failed after %d retries ", client.getRetryCount()), lastExc);
+    LOGGER.error(String.format("failed after %d retries ", retries), lastExc);
     throw new SentryUserException(
-      String.format("failed after %d retries ", client.getRetryCount()), lastExc);
+      String.format("failed after %d retries ", retries), lastExc);
   }
 
   @Override

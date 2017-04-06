@@ -19,7 +19,6 @@
 package org.apache.sentry.provider.db.service.thrift;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,6 +30,9 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.sentry.core.common.exception.SentryUserException;
 import org.apache.sentry.core.common.ActiveRoleSet;
 import org.apache.sentry.core.common.Authorizable;
+import org.apache.sentry.core.common.transport.SentryClientTransportConfigInterface;
+import org.apache.sentry.core.common.transport.SentrySocket;
+import org.apache.sentry.core.common.transport.SentryTransportFactory;
 import org.apache.sentry.core.model.db.AccessConstants;
 import org.apache.sentry.core.model.db.DBModelAuthorizable;
 import org.apache.sentry.core.common.utils.PolicyFileConstants;
@@ -42,7 +44,7 @@ import org.apache.sentry.service.thrift.Status;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TMultiplexedProtocol;
-import org.apache.sentry.core.common.transport.SentryServiceClientTransportDefaultImpl;
+import org.apache.thrift.transport.TTransport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,35 +67,43 @@ import com.google.common.collect.Sets;
  server this is configured.
 */
 
-public class SentryPolicyServiceClientDefaultImpl extends SentryServiceClientTransportDefaultImpl implements SentryPolicyServiceClient {
+public class SentryPolicyServiceClientDefaultImpl
+        implements SentryPolicyServiceClient, SentrySocket {
+
+  private final Configuration conf;
 
   private SentryPolicyService.Client client;
   private static final Logger LOGGER = LoggerFactory
           .getLogger(SentryPolicyServiceClient.class);
+  private SentryTransportFactory transportFactory;
+  private TTransport transport;
+
+
   private static final String THRIFT_EXCEPTION_MESSAGE = "Thrift exception occurred ";
 
   /**
    * Initialize the sentry configurations.
    */
-  public SentryPolicyServiceClientDefaultImpl(Configuration conf)
+  public SentryPolicyServiceClientDefaultImpl(Configuration conf,
+                                              SentryClientTransportConfigInterface transportConfig)
           throws IOException {
-    super(conf, sentryClientType.POLICY_CLIENT);
-  }
-
-  public SentryPolicyServiceClientDefaultImpl(String addr, int port,
-                                              Configuration conf) throws IOException {
-    super(addr, port, conf, sentryClientType.POLICY_CLIENT);
+    this.conf = conf;
+    this.transportFactory = new SentryTransportFactory(conf, transportConfig);
   }
 
   /**
    * Connect to the specified socket address and then use the new socket
    * to construct new thrift client.
    *
-   * @param serverAddress: socket address to which the client should connect.
    * @throws IOException
    */
-  public void connect(InetSocketAddress serverAddress) throws IOException {
-    super.connect(serverAddress);
+  @Override
+  public void connect() throws IOException {
+    if (isOpen()) {
+      return;
+    }
+    transport = transportFactory.connect();
+
     long maxMessageSize = conf.getLong(
             ServiceConstants.ClientConfig.SENTRY_POLICY_CLIENT_THRIFT_MAX_MESSAGE_SIZE,
             ServiceConstants.ClientConfig.SENTRY_POLICY_CLIENT_THRIFT_MAX_MESSAGE_SIZE_DEFAULT);
@@ -1007,5 +1017,15 @@ public class SentryPolicyServiceClientDefaultImpl extends SentryServiceClientTra
       }
     }
     return rolePrivilegesMapForFile;
+  }
+
+  @Override
+  public void close() {
+    transport.close();
+    transport = null;
+  }
+
+  private boolean isOpen() {
+    return ((transport != null) && transport.isOpen());
   }
 }

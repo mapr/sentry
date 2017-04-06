@@ -19,6 +19,8 @@ package org.apache.sentry.provider.db.generic.service.thrift;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.sentry.core.common.transport.RetryClientInvocationHandler;
+import org.apache.sentry.core.common.transport.SentryClientTransportConfigInterface;
+import org.apache.sentry.core.common.transport.SentryPolicyClientTransportConfig;
 
 import java.lang.reflect.Proxy;
 
@@ -26,6 +28,8 @@ import java.lang.reflect.Proxy;
  * SentryGenericServiceClientFactory is a public class for the components which using Generic Model to create sentry client.
  */
 public final class SentryGenericServiceClientFactory {
+  private static final SentryClientTransportConfigInterface transportConfig =
+          new SentryPolicyClientTransportConfig();
 
   private SentryGenericServiceClientFactory() {
   }
@@ -34,8 +38,8 @@ public final class SentryGenericServiceClientFactory {
     return (SentryGenericServiceClient) Proxy
       .newProxyInstance(SentryGenericServiceClientDefaultImpl.class.getClassLoader(),
         SentryGenericServiceClientDefaultImpl.class.getInterfaces(),
-        new RetryClientInvocationHandler(conf,
-          new SentryGenericServiceClientDefaultImpl(conf)));
+        new RetryClientInvocationHandler(conf, transportConfig,
+          new SentryGenericServiceClientDefaultImpl(conf, transportConfig)));
   }
     
 }

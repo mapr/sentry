@@ -21,12 +21,16 @@ import java.lang.reflect.Proxy;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.sentry.core.common.transport.RetryClientInvocationHandler;
+import org.apache.sentry.core.common.transport.SentryClientTransportConfigInterface;
+import org.apache.sentry.core.common.transport.SentryHDFSClientTransportConfig;
 
 /**
  * Client factory to create normal client or proxy with HA invocation handler
  */
 public class SentryHDFSServiceClientFactory {
-    
+  private static final SentryClientTransportConfigInterface transportConfig =
+          new SentryHDFSClientTransportConfig();
+
   private SentryHDFSServiceClientFactory() {
     // Make constructor private to avoid instantiation
   }
@@ -36,7 +40,8 @@ public class SentryHDFSServiceClientFactory {
     return (SentryHDFSServiceClient) Proxy
       .newProxyInstance(SentryHDFSServiceClientDefaultImpl.class.getClassLoader(),
         SentryHDFSServiceClientDefaultImpl.class.getInterfaces(),
-        new RetryClientInvocationHandler(conf,
-          new SentryHDFSServiceClientDefaultImpl(conf)));
+        new RetryClientInvocationHandler(conf, transportConfig,
+          new SentryHDFSServiceClientDefaultImpl(conf,
+                  transportConfig)));
   }
 }

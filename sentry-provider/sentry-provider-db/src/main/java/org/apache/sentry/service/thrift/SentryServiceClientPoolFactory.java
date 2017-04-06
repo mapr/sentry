@@ -23,9 +23,9 @@ import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.sentry.provider.db.service.thrift.SentryPolicyServiceClient;
-import org.apache.sentry.provider.db.service.thrift.SentryPolicyServiceClientDefaultImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 /**
  * SentryServiceClientPoolFactory is for connection pool to manage the object. Implement the related
@@ -36,21 +36,21 @@ public class SentryServiceClientPoolFactory extends BasePooledObjectFactory<Sent
 
   private static final Logger LOGGER = LoggerFactory.getLogger(SentryServiceClientPoolFactory.class);
 
-  private final String addr;
-  private final int port;
-  private final Configuration conf;
+  //private final String addr;
+  //private final int port;
+  //private final Configuration conf;
 
   public SentryServiceClientPoolFactory(String addr, int port,
                                         Configuration conf) {
-    this.addr = addr;
-    this.port = port;
-    this.conf = conf;
+    LOGGER.debug("addr = " + addr + "port = " + String.valueOf(port) + " conf = ", conf.toString());
+    //this.addr = addr;
+    //this.port = port;
+    //this.conf = conf;
   }
 
   @Override
   public SentryPolicyServiceClient create() throws Exception {
-    LOGGER.debug("Creating Sentry Service Client...");
-    return new SentryPolicyServiceClientDefaultImpl(addr, port, conf);
+    throw new NotImplementedException();
   }
 
   @Override
@@ -60,13 +60,6 @@ public class SentryServiceClientPoolFactory extends BasePooledObjectFactory<Sent
 
   @Override
   public void destroyObject(PooledObject<SentryPolicyServiceClient> pooledObject) {
-    SentryPolicyServiceClient client = pooledObject.getObject();
-    LOGGER.debug("Destroying Sentry Service Client: " + client);
-    if (client != null) {
-      // The close() of TSocket or TSaslClientTransport is called actually, and there has no
-      // exception even there has some problems, eg, the client is closed already.
-      // The close here is just try to close the socket and the client will be destroyed soon.
-      client.close();
-    }
+    throw new NotImplementedException();
   }
 }

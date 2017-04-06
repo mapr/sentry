@@ -18,12 +18,13 @@
 package org.apache.sentry.hdfs;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.util.LinkedList;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.sentry.core.common.exception.SentryHdfsServiceException;
-import org.apache.sentry.core.common.transport.SentryServiceClientTransportDefaultImpl;
+import org.apache.sentry.core.common.transport.SentryClientTransportConfigInterface;
+import org.apache.sentry.core.common.transport.SentrySocket;
+import org.apache.sentry.core.common.transport.SentryTransportFactory;
 import org.apache.sentry.hdfs.service.thrift.SentryHDFSService;
 import org.apache.sentry.hdfs.service.thrift.SentryHDFSService.Client;
 import org.apache.sentry.hdfs.service.thrift.TAuthzUpdateResponse;
@@ -34,6 +35,7 @@ import org.apache.thrift.protocol.TCompactProtocol;
 import org.apache.thrift.protocol.TMultiplexedProtocol;
 import org.apache.thrift.protocol.TProtocol;
 
+import org.apache.thrift.transport.TTransport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,28 +49,41 @@ import org.slf4j.LoggerFactory;
 */
 
 
-public class SentryHDFSServiceClientDefaultImpl extends SentryServiceClientTransportDefaultImpl implements SentryHDFSServiceClient {
+public class SentryHDFSServiceClientDefaultImpl
+        implements SentryHDFSServiceClient, SentrySocket {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(SentryHDFSServiceClientDefaultImpl.class);
+  private final Configuration conf;
 
   private Client client;
+  private SentryTransportFactory transportFactory;
+  private TTransport transport;
 
-  public SentryHDFSServiceClientDefaultImpl(Configuration conf) throws IOException {
-    super(conf, sentryClientType.HDFS_CLIENT);
+
+
+  SentryHDFSServiceClientDefaultImpl(Configuration conf,
+                                     SentryClientTransportConfigInterface transportConfig)
+          throws IOException {
+    this.conf = conf;
+    transportFactory = new SentryTransportFactory(conf, transportConfig);
   }
 
   /**
    * Connect to the specified socket address and then use the new socket
    * to construct new thrift client.
    *
-   * @param serverAddress: socket address to which the client should connect.
    * @throws IOException
    */
-  public void connect(InetSocketAddress serverAddress) throws IOException {
-    TProtocol tProtocol = null;
-    super.connect(serverAddress);
+  @Override
+  public void connect() throws IOException {
+    if (isOpen()) {
+      return;
+    }
+
+    transport = transportFactory.connect();
     long maxMessageSize = conf.getLong(ServiceConstants.ClientConfig.SENTRY_HDFS_THRIFT_MAX_MESSAGE_SIZE,
             ServiceConstants.ClientConfig.SENTRY_HDFS_THRIFT_MAX_MESSAGE_SIZE_DEFAULT);
+    TProtocol tProtocol = null;
     if (conf.getBoolean(ServiceConstants.ClientConfig.USE_COMPACT_TRANSPORT,
             ServiceConstants.ClientConfig.USE_COMPACT_TRANSPORT_DEFAULT)) {
       tProtocol = new TCompactProtocol(transport, maxMessageSize, maxMessageSize);
@@ -118,5 +133,15 @@ public class SentryHDFSServiceClientDefaultImpl extends SentryServiceClientTrans
       throw new SentryHdfsServiceException("Thrift Exception occurred !!", e);
     }
     return retVal;
+  }
+
+  @Override
+  public void close() {
+    transport.close();
+    transport = null;
+  }
+
+  private boolean isOpen() {
+    return ((transport != null) && transport.isOpen());
   }
 }

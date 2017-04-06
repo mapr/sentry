@@ -18,18 +18,16 @@
 package org.apache.sentry.provider.db.generic.service.thrift;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.util.*;
 
 import org.apache.hadoop.conf.Configuration;
 
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_SECURITY_AUTHENTICATION;
-
 import org.apache.sentry.core.common.exception.SentryUserException;
 import org.apache.sentry.core.common.ActiveRoleSet;
 import org.apache.sentry.core.common.Authorizable;
-import org.apache.sentry.core.common.transport.SentryServiceClientTransportDefaultImpl;
-import org.apache.sentry.core.common.utils.SentryConstants;
+import org.apache.sentry.core.common.transport.SentryClientTransportConfigInterface;
+import org.apache.sentry.core.common.transport.SentrySocket;
+import org.apache.sentry.core.common.transport.SentryTransportFactory;
 import org.apache.sentry.core.model.db.AccessConstants;
 import org.apache.sentry.service.thrift.ServiceConstants;
 import org.apache.sentry.service.thrift.Status;
@@ -38,6 +36,7 @@ import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TMultiplexedProtocol;
 
+import org.apache.thrift.transport.TTransport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,30 +51,48 @@ import com.google.common.collect.Lists;
  So it is important to close and re-open the transport so that new socket is used.
  */
 
-public class SentryGenericServiceClientDefaultImpl extends SentryServiceClientTransportDefaultImpl implements SentryGenericServiceClient {
+public class SentryGenericServiceClientDefaultImpl
+        implements SentryGenericServiceClient, SentrySocket {
+  private final SentryTransportFactory transportFactory;
+  private final Configuration conf;
+  private TTransport transport;
+
+
   private SentryGenericPolicyService.Client client;
   private static final Logger LOGGER = LoggerFactory
     .getLogger(SentryGenericServiceClientDefaultImpl.class);
   private static final String THRIFT_EXCEPTION_MESSAGE = "Thrift exception occured ";
 
-  public SentryGenericServiceClientDefaultImpl(Configuration conf) throws IOException {
-    super(conf, sentryClientType.POLICY_CLIENT);
+  public SentryGenericServiceClientDefaultImpl(Configuration conf,
+                                               SentryClientTransportConfigInterface transportConfig)
+          throws IOException {
+    this.conf = conf;
+    transportFactory = new SentryTransportFactory(conf, transportConfig);
+
+    // TODO - do it correctly
+    /*
     if (kerberos) {
       // since the client uses hadoop-auth, we need to set kerberos in
       // hadoop-auth if we plan to use kerberos
       conf.set(HADOOP_SECURITY_AUTHENTICATION, SentryConstants.KERBEROS_MODE);
     }
+    */
   }
 
   /**
    * Connect to the specified socket address and then use the new socket
    * to construct new thrift client.
    *
-   * @param serverAddress: socket address to which the client should connect.
    * @throws IOException
    */
-  public void connect(InetSocketAddress serverAddress) throws IOException {
-    super.connect(serverAddress);
+  @Override
+  public void connect() throws IOException {
+    if (isOpen()) {
+      return;
+    }
+
+    transport = transportFactory.connect();
+
     long maxMessageSize = conf.getLong(ServiceConstants.ClientConfig.SENTRY_POLICY_CLIENT_THRIFT_MAX_MESSAGE_SIZE,
             ServiceConstants.ClientConfig.SENTRY_POLICY_CLIENT_THRIFT_MAX_MESSAGE_SIZE_DEFAULT);
     TMultiplexedProtocol protocol = new TMultiplexedProtocol(
@@ -84,6 +101,12 @@ public class SentryGenericServiceClientDefaultImpl extends SentryServiceClientTr
     client = new SentryGenericPolicyService.Client(protocol);
     LOGGER.debug("Successfully created client");
   }
+
+  private boolean isOpen() {
+    return ((transport != null) && transport.isOpen());
+  }
+
+
   /**
    * Create a sentry role
    *
@@ -505,5 +528,10 @@ public class SentryGenericServiceClientDefaultImpl extends SentryServiceClientTr
     } catch (TException e) {
       throw new SentryUserException(THRIFT_EXCEPTION_MESSAGE, e);
     }
+  }
+
+  @Override
+  public void close() {
+    transport.close();
   }
 }

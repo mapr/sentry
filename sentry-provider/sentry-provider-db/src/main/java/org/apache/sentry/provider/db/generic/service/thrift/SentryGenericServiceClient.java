@@ -24,9 +24,8 @@ import java.util.Set;
 import org.apache.sentry.core.common.exception.SentryUserException;
 import org.apache.sentry.core.common.ActiveRoleSet;
 import org.apache.sentry.core.common.Authorizable;
-import org.apache.sentry.core.common.transport.SentryServiceClient;
 
-public interface SentryGenericServiceClient extends SentryServiceClient {
+public interface SentryGenericServiceClient {
 
   /**
    * Create a sentry role
@@ -192,4 +191,6 @@ public interface SentryGenericServiceClient extends SentryServiceClient {
   Map<String, TSentryPrivilegeMap> listPrivilegsbyAuthorizable(String component,
       String serviceName, String requestorUserName, Set<String> authorizablesSet,
       Set<String> groups, ActiveRoleSet roleSet) throws SentryUserException;
+
+  void close();
 }

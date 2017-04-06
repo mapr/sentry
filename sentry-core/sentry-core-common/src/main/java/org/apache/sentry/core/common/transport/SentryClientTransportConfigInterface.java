@@ -28,7 +28,7 @@ import org.apache.sentry.core.common.exception.MissingConfigurationException;
  * This Configuration interface should be implemented for all the sentry clients to get
  * the transport configuration.
  */
-interface SentryClientTransportConfigInterface {
+public interface SentryClientTransportConfigInterface {
   /**
    * @param conf configuration
    * @return number of times client retry logic should iterate through all

@@ -6,30 +6,27 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.sentry.hdfs;
 
-import org.apache.sentry.core.common.exception.SentryHdfsServiceException;
+package org.apache.sentry.core.common.transport;
 
-public interface SentryHDFSServiceClient {
-  String SENTRY_HDFS_SERVICE_NAME = "SentryHDFSService";
+import java.io.IOException;
 
-  void notifyHMSUpdate(PathsUpdate update)
-      throws SentryHdfsServiceException;
-
-  long getLastSeenHMSPathSeqNum() throws SentryHdfsServiceException;
-
-  SentryAuthzUpdate getAllUpdatesFrom(long permSeqNum, long pathSeqNum)
-      throws SentryHdfsServiceException;
-
-  void close();
+/**
+ * General representation of transport connection to Sentry
+ */
+public interface SentrySocket extends AutoCloseable {
+  /**
+   * Connect to the Sentry server
+   * @throws IOException
+   */
+  void connect() throws IOException;
 }
-

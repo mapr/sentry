@@ -25,9 +25,8 @@ import java.util.Set;
 import org.apache.sentry.core.common.exception.SentryUserException;
 import org.apache.sentry.core.common.ActiveRoleSet;
 import org.apache.sentry.core.common.Authorizable;
-import org.apache.sentry.core.common.transport.SentryServiceClient;
 
-public interface SentryPolicyServiceClient extends SentryServiceClient {
+public interface SentryPolicyServiceClient  {
 
   void createRole(String requestorUserName, String roleName) throws SentryUserException;
 
@@ -216,4 +215,6 @@ public interface SentryPolicyServiceClient extends SentryServiceClient {
   // export the sentry mapping data with map structure
   Map<String, Map<String, Set<String>>> exportPolicy(String requestorUserName, String objectPath)
       throws SentryUserException;
+
+  void close();
 }
