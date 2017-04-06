@@ -345,7 +345,8 @@ public abstract class SentryServiceIntegrationBase extends SentryMiniKdcTestcase
           return null;
         }});
     } else {
-    */  test.runTestAsSubject();
+    */
+    test.runTestAsSubject();
     //}
   }
 

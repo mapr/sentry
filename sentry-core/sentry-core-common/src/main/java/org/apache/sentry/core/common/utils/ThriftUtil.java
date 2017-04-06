@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.sentry.provider.db.service.thrift;
+package org.apache.sentry.core.common.utils;
 
 import com.google.common.net.HostAndPort;
 import org.apache.thrift.protocol.TProtocol;
@@ -29,6 +29,9 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 
+/**
+ * Utility class for Thrift clients and servers
+ */
 public final class ThriftUtil {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ThriftUtil.class);

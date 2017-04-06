@@ -16,8 +16,14 @@
  * limitations under the License.
  */
 
-package org.apache.sentry.hdfs;
+package org.apache.sentry.core.common.exception;
 
+/**
+ * Signals that there was an error while using Sentry Hdfs Service
+ * <p>
+ * Exception thrown by <code>SentryHDFSServiceClient</code> on catching any exception
+ * using the <code>SentryHDFSService</code>.
+ */
 public class SentryHdfsServiceException extends RuntimeException {
   private static final long serialVersionUID = 1511645864949767378L;
 
@@ -28,6 +34,4 @@ public class SentryHdfsServiceException extends RuntimeException {
   public SentryHdfsServiceException(String message) {
     super(message);
   }
-
-
 }

@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,25 +20,14 @@ package org.apache.sentry.provider.db.service.thrift;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.security.PrivilegedExceptionAction;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Collections;
 
-import javax.security.auth.callback.CallbackHandler;
-import javax.security.sasl.Sasl;
-
-import com.google.common.collect.ImmutableMap;
-import com.google.common.net.HostAndPort;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.net.NetUtils;
-import org.apache.hadoop.security.SaslRpcServer;
-import org.apache.hadoop.security.SecurityUtil;
-import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.sentry.core.common.exception.MissingConfigurationException;
+
 import org.apache.sentry.core.common.exception.SentryUserException;
 import org.apache.sentry.core.common.ActiveRoleSet;
 import org.apache.sentry.core.common.Authorizable;
@@ -53,16 +42,11 @@ import org.apache.sentry.service.thrift.Status;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TMultiplexedProtocol;
-import org.apache.thrift.transport.TSaslClientTransport;
-import org.apache.thrift.transport.TSocket;
-import org.apache.thrift.transport.TTransport;
-import org.apache.thrift.transport.TTransportException;
-import org.apache.sentry.core.common.transport.SentryPolicyClientTransportConfig;
+import org.apache.sentry.core.common.transport.SentryServiceClientTransportDefaultImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
@@ -70,211 +54,58 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 /*
+ Sentry Policy Service Client
+
+ The public implementation of SentryPolicyServiceClient.
  A Sentry Client in which all the operations are synchronized for thread safety
  Note: When using this client, if there is an exception in RPC, socket can get into an inconsistent state.
- So it is important to recreate the client, which uses a new socket.
- */
-public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyServiceClient {
+ So it is important to close and re-open the transport so that new socket is used.
+ 
+ When an class is instantiated, there will be transport created connecting with first available
+ server this is configured.
+*/
 
-  private final Configuration conf;
-  private final boolean kerberos;
-  private String[] serverPrincipalParts;
+public class SentryPolicyServiceClientDefaultImpl extends SentryServiceClientTransportDefaultImpl implements SentryPolicyServiceClient {
+
   private SentryPolicyService.Client client;
-  private TTransport transport;
-  private int connectionTimeout;
   private static final Logger LOGGER = LoggerFactory
-                                       .getLogger(SentryPolicyServiceClient.class);
+          .getLogger(SentryPolicyServiceClient.class);
   private static final String THRIFT_EXCEPTION_MESSAGE = "Thrift exception occurred ";
-  // configs for connection retry
-  private int connectionFullRetryTotal;
-  private List<InetSocketAddress> endpoints;
-  final SentryPolicyClientTransportConfig transportConfig =  new SentryPolicyClientTransportConfig();
-  private static final ImmutableMap<String, String> SASL_PROPERTIES =
-    ImmutableMap.of(Sasl.SERVER_AUTH, "true", Sasl.QOP, "auth-conf");
-
-  /**
-   * This transport wraps the Sasl transports to set up the right UGI context for open().
-   */
-  public static class UgiSaslClientTransport extends TSaslClientTransport {
-    protected UserGroupInformation ugi = null;
-
-    public UgiSaslClientTransport(String mechanism, String authorizationId,
-        String protocol, String serverName, Map<String, String> props,
-        CallbackHandler cbh, TTransport transport, boolean wrapUgi)
-        throws IOException {
-      super(mechanism, authorizationId, protocol, serverName, props, cbh,
-          transport);
-      if (wrapUgi) {
-        ugi = UserGroupInformation.getLoginUser();
-      }
-    }
-
-    // open the SASL transport with using the current UserGroupInformation
-    // This is needed to get the current login context stored
-    @Override
-    public synchronized void open() throws TTransportException {
-      if (ugi == null) {
-        baseOpen();
-      } else {
-        try {
-          if (ugi.isFromKeytab()) {
-            ugi.checkTGTAndReloginFromKeytab();
-          }
-          ugi.doAs(new PrivilegedExceptionAction<Void>() {
-            public Void run() throws TTransportException {
-              baseOpen();
-              return null;
-            }
-          });
-        } catch (IOException e) {
-          throw new TTransportException("Failed to open SASL transport", e);
-        } catch (InterruptedException e) {
-          throw new TTransportException(
-              "Interrupted while opening underlying transport", e);
-        }
-      }
-    }
-
-    private void baseOpen() throws TTransportException {
-      super.open();
-    }
-  }
 
   /**
    * Initialize the sentry configurations.
    */
   public SentryPolicyServiceClientDefaultImpl(Configuration conf)
-    throws IOException {
-    this.conf = conf;
-    Preconditions.checkNotNull(this.conf, "Configuration object cannot be null");
-    try {
-      String hostsAndPortsStr;
-      this.connectionTimeout = transportConfig.getServerRpcConnTimeoutInMs(conf);
-      this.connectionFullRetryTotal = transportConfig.getSentryFullRetryTotal(conf);
-
-      this.kerberos = transportConfig.isKerberosEnabled(conf);
-      hostsAndPortsStr = transportConfig.getSentryServerRpcAddress(conf);
-
-      int serverPort = transportConfig.getServerRpcPort(conf);
-
-      String[] hostsAndPortsStrArr = hostsAndPortsStr.split(",");
-      HostAndPort[] hostsAndPorts = ThriftUtil.parseHostPortStrings(hostsAndPortsStrArr, serverPort);
-      this.endpoints = new ArrayList(hostsAndPortsStrArr.length);
-      for (int i = hostsAndPortsStrArr.length - 1; i >= 0; i--) {
-        this.endpoints.add(
-          new InetSocketAddress(hostsAndPorts[i].getHostText(), hostsAndPorts[i].getPort()));
-        LOGGER.debug("Added server endpoint: " + hostsAndPorts[i].toString());
-      }
-    } catch (MissingConfigurationException e) {
-      throw new RuntimeException("Client Creation Failed: " + e.getMessage(), e);
-    }
+          throws IOException {
+    super(conf, sentryClientType.POLICY_CLIENT);
   }
 
   public SentryPolicyServiceClientDefaultImpl(String addr, int port,
                                               Configuration conf) throws IOException {
-    this.conf = conf;
-    Preconditions.checkNotNull(this.conf, "Configuration object cannot be null");
-    try {
-      InetSocketAddress serverAddress = NetUtils.createSocketAddr(addr, port);
-      this.connectionTimeout = transportConfig.getServerRpcConnTimeoutInMs(conf);
-      this.kerberos = transportConfig.isKerberosEnabled(conf);
-      connect(serverAddress);
-    } catch (MissingConfigurationException e) {
-      throw new RuntimeException("Client Creation Failed: " + e.getMessage(), e);
-    }
-
+    super(addr, port, conf, sentryClientType.POLICY_CLIENT);
   }
 
   /**
-   * This is a no-op when already connected.
-   * When there is a connection error, it will retry with another sentry server. It will
-   * first cycle through all the available sentry servers, and then retry the whole server
-   * list no more than connectionFullRetryTotal times. In this case, it won't introduce
-   * more latency when some server fails. Also to prevent all clients connecting to the
-   * same server, it will reorder the endpoints randomly after a full retry.
-   * <p>
-   * TODO: Have a small random sleep after a full retry to prevent all clients connecting to the same server.
-   * <p>
-   * TODO: Add metrics for the number of successful connects and errors per client, and total number of retries.
-   * @throws Exception if client fails to connect to all servers for a configured
-   * number of times
+   * Connect to the specified socket address and then use the new socket
+   * to construct new thrift client.
+   *
+   * @param serverAddress: socket address to which the client should connect.
+   * @throws IOException
    */
-  public synchronized void connectWithRetry() throws Exception {
-    if (isConnected()) {
-      return;
-    }
-    Exception currentException = null;
-    // Here for each full connectWithRetry it will cycle through all available sentry
-    // servers. Before each full connectWithRetry, it will shuffle the server list.
-    for (int retryCount = 0; retryCount < connectionFullRetryTotal; retryCount++) {
-      // Reorder endpoints randomly to prevent all clients connecting to the same endpoint
-      // at the same time after a node failure.
-      Collections.shuffle(endpoints);
-      for (InetSocketAddress addr : endpoints) {
-        try {
-          connect(addr);
-          LOGGER.info(String.format("Connected to SentryServer: %s", addr.toString()));
-          return;
-        } catch (Exception e) {
-          LOGGER.debug(String.format("Failed connection to %s: %s",
-              addr.toString(), e.getMessage()), e);
-          currentException = e;
-        }
-      }
-    }
-
-    // Throw exception as reaching the max full connectWithRetry number.
-    LOGGER.error(
-        String.format("Reach the max connection retry num %d ", connectionFullRetryTotal),
-        currentException);
-    throw currentException;
-  }
-
-  /**
-   * Connect to the specified socket address and throw Exception if failed.
-   */
-  private void connect(InetSocketAddress serverAddress) throws IOException {
-    transport = new TSocket(serverAddress.getHostName(),
-        serverAddress.getPort(), connectionTimeout);
-    try {
-      if (kerberos) {
-        String serverPrincipal = transportConfig.getSentryPrincipal(conf);
-
-        // Resolve server host in the same way as we are doing on server side
-        serverPrincipal =
-          SecurityUtil.getServerPrincipal(serverPrincipal, serverAddress.getAddress());
-        LOGGER.debug("Using server kerberos principal: " + serverPrincipal);
-
-        serverPrincipalParts = SaslRpcServer.splitKerberosName(serverPrincipal);
-        Preconditions.checkArgument(serverPrincipalParts.length == 3,
-          "Kerberos principal should have 3 parts: " + serverPrincipal);
-        boolean wrapUgi = transportConfig.useUserGroupInformation(conf);
-        transport = new SentryPolicyServiceClientDefaultImpl.UgiSaslClientTransport(
-          SaslRpcServer.AuthMethod.KERBEROS.getMechanismName(),
-          null, serverPrincipalParts[0], serverPrincipalParts[1],
-          SASL_PROPERTIES, null, transport, wrapUgi);
-      } else {
-        serverPrincipalParts = null;
-      }
-
-      transport.open();
-    } catch (TTransportException e) {
-      throw new IOException("Transport exception while opening transport: " + e.getMessage(), e);
-    }
-
-    LOGGER.debug("Successfully opened transport: " + transport + " to " + serverAddress);
+  public void connect(InetSocketAddress serverAddress) throws IOException {
+    super.connect(serverAddress);
     long maxMessageSize = conf.getLong(
-        ServiceConstants.ClientConfig.SENTRY_POLICY_CLIENT_THRIFT_MAX_MESSAGE_SIZE,
-        ServiceConstants.ClientConfig.SENTRY_POLICY_CLIENT_THRIFT_MAX_MESSAGE_SIZE_DEFAULT);
+            ServiceConstants.ClientConfig.SENTRY_POLICY_CLIENT_THRIFT_MAX_MESSAGE_SIZE,
+            ServiceConstants.ClientConfig.SENTRY_POLICY_CLIENT_THRIFT_MAX_MESSAGE_SIZE_DEFAULT);
     TMultiplexedProtocol protocol = new TMultiplexedProtocol(
-        new TBinaryProtocol(transport, maxMessageSize, maxMessageSize, true, true),
-        SentryPolicyStoreProcessor.SENTRY_POLICY_SERVICE_NAME);
+            new TBinaryProtocol(transport, maxMessageSize, maxMessageSize, true, true),
+            SentryPolicyStoreProcessor.SENTRY_POLICY_SERVICE_NAME);
     client = new SentryPolicyService.Client(protocol);
     LOGGER.debug("Successfully created client");
   }
 
   public synchronized void createRole(String requestorUserName, String roleName)
-  throws SentryUserException {
+          throws SentryUserException {
     TCreateSentryRoleRequest request = new TCreateSentryRoleRequest();
     request.setProtocol_version(ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT);
     request.setRequestorUserName(requestorUserName);
@@ -288,20 +119,20 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
   }
 
   public synchronized void dropRole(String requestorUserName,
-      String roleName)
-  throws SentryUserException {
+                                    String roleName)
+          throws SentryUserException {
     dropRole(requestorUserName, roleName, false);
   }
 
   public synchronized void dropRoleIfExists(String requestorUserName,
-      String roleName)
-  throws SentryUserException {
+                                            String roleName)
+          throws SentryUserException {
     dropRole(requestorUserName, roleName, true);
   }
 
   private synchronized void dropRole(String requestorUserName,
-      String roleName, boolean ifExists)
-  throws SentryUserException {
+                                     String roleName, boolean ifExists)
+          throws SentryUserException {
     TDropSentryRoleRequest request = new TDropSentryRoleRequest();
     request.setProtocol_version(ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT);
     request.setRequestorUserName(requestorUserName);
@@ -320,15 +151,16 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
 
   /**
    * Gets sentry role objects for a given groupName using the Sentry service
+   *
    * @param requestorUserName : user on whose behalf the request is issued
-   * @param groupName : groupName to look up ( if null returns all roles for all groups)
+   * @param groupName         : groupName to look up ( if null returns all roles for all groups)
    * @return Set of thrift sentry role objects
    * @throws SentryUserException
    */
   public synchronized Set<TSentryRole> listRolesByGroupName(
-      String requestorUserName,
-      String groupName)
-  throws SentryUserException {
+          String requestorUserName,
+          String groupName)
+          throws SentryUserException {
     TListSentryRolesRequest request = new TListSentryRolesRequest();
     request.setProtocol_version(ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT);
     request.setRequestorUserName(requestorUserName);
@@ -350,15 +182,13 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
   /**
    * Gets sentry role objects for a given userName using the Sentry service
    *
-   * @param requestorUserName
-   *        : user on whose behalf the request is issued
-   * @param userName
-   *        : userName to look up (can't be empty)
+   * @param requestorUserName : user on whose behalf the request is issued
+   * @param userName          : userName to look up (can't be empty)
    * @return Set of thrift sentry role objects
    * @throws SentryUserException
    */
   public Set<TSentryRole> listRolesByUserName(String requestorUserName, String userName)
-      throws SentryUserException {
+          throws SentryUserException {
     TListSentryRolesForUserRequest request = new TListSentryRolesForUserRequest();
     request.setProtocol_version(ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT);
     request.setRequestorUserName(requestorUserName);
@@ -374,22 +204,23 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
   }
 
   public synchronized Set<TSentryPrivilege> listAllPrivilegesByRoleName(String requestorUserName,
-      String roleName)
-                 throws SentryUserException {
+                                                                        String roleName)
+          throws SentryUserException {
     return listPrivilegesByRoleName(requestorUserName, roleName, null);
   }
 
   /**
    * Gets sentry privilege objects for a given roleName using the Sentry service
+   *
    * @param requestorUserName : user on whose behalf the request is issued
-   * @param roleName : roleName to look up
-   * @param authorizable : authorizable Hierarchy (server->db->table etc)
+   * @param roleName          : roleName to look up
+   * @param authorizable      : authorizable Hierarchy (server->db->table etc)
    * @return Set of thrift sentry privilege objects
    * @throws SentryUserException
    */
   public synchronized Set<TSentryPrivilege> listPrivilegesByRoleName(String requestorUserName,
-      String roleName, List<? extends Authorizable> authorizable)
-  throws SentryUserException {
+                                                                     String roleName, List<? extends Authorizable> authorizable)
+          throws SentryUserException {
     TListSentryPrivilegesRequest request = new TListSentryPrivilegesRequest();
     request.setProtocol_version(ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT);
     request.setRequestorUserName(requestorUserName);
@@ -409,12 +240,12 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
   }
 
   public synchronized Set<TSentryRole> listRoles(String requestorUserName)
-      throws SentryUserException {
+          throws SentryUserException {
     return listRolesByGroupName(requestorUserName, null);
   }
 
   public synchronized Set<TSentryRole> listUserRoles(String requestorUserName)
-      throws SentryUserException {
+          throws SentryUserException {
     Set<TSentryRole> tSentryRoles = Sets.newHashSet();
     tSentryRoles.addAll(listRolesByGroupName(requestorUserName, AccessConstants.ALL));
     tSentryRoles.addAll(listRolesByUserName(requestorUserName, requestorUserName));
@@ -422,22 +253,22 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
   }
 
   public synchronized TSentryPrivilege grantURIPrivilege(String requestorUserName,
-      String roleName, String server, String uri)
-  throws SentryUserException {
+                                                         String roleName, String server, String uri)
+          throws SentryUserException {
     return grantPrivilege(requestorUserName, roleName,
-        PrivilegeScope.URI, server, uri, null, null, null, AccessConstants.ALL);
+            PrivilegeScope.URI, server, uri, null, null, null, AccessConstants.ALL);
   }
 
   public synchronized TSentryPrivilege grantURIPrivilege(String requestorUserName,
-      String roleName, String server, String uri, Boolean grantOption)
-  throws SentryUserException {
+                                                         String roleName, String server, String uri, Boolean grantOption)
+          throws SentryUserException {
     return grantPrivilege(requestorUserName, roleName,
-        PrivilegeScope.URI, server, uri, null, null, null, AccessConstants.ALL, grantOption);
+            PrivilegeScope.URI, server, uri, null, null, null, AccessConstants.ALL, grantOption);
   }
 
   public synchronized void grantServerPrivilege(String requestorUserName,
-      String roleName, String server, String action)
-  throws SentryUserException {
+                                                String roleName, String server, String action)
+          throws SentryUserException {
 
     // "ALL" and "*" should be synonyms for action and need to be unified with grantServerPrivilege without
     // action explicitly specified.
@@ -446,7 +277,7 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
     }
 
     grantPrivilege(requestorUserName, roleName,
-        PrivilegeScope.SERVER, server, null, null, null, null, action);
+            PrivilegeScope.SERVER, server, null, null, null, null, action);
   }
 
   @Deprecated
@@ -455,14 +286,14 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
    *  String roleName, String server, String action, Boolean grantOption)
    */
   public synchronized TSentryPrivilege grantServerPrivilege(String requestorUserName,
-      String roleName, String server, Boolean grantOption) throws SentryUserException {
+                                                            String roleName, String server, Boolean grantOption) throws SentryUserException {
     return grantServerPrivilege(requestorUserName, roleName, server,
-        AccessConstants.ALL, grantOption);
+            AccessConstants.ALL, grantOption);
   }
 
   public synchronized TSentryPrivilege grantServerPrivilege(String requestorUserName,
-      String roleName, String server, String action, Boolean grantOption)
-  throws SentryUserException {
+                                                            String roleName, String server, String action, Boolean grantOption)
+          throws SentryUserException {
 
     // "ALL" and "*" should be synonyms for action and need to be unified with grantServerPrivilege without
     // action explicitly specified.
@@ -471,72 +302,72 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
     }
 
     return grantPrivilege(requestorUserName, roleName,
-        PrivilegeScope.SERVER, server, null, null, null, null, action, grantOption);
+            PrivilegeScope.SERVER, server, null, null, null, null, action, grantOption);
   }
 
   public synchronized TSentryPrivilege grantDatabasePrivilege(String requestorUserName,
-      String roleName, String server, String db, String action)
-  throws SentryUserException {
+                                                              String roleName, String server, String db, String action)
+          throws SentryUserException {
     return grantPrivilege(requestorUserName, roleName,
-        PrivilegeScope.DATABASE, server, null, db, null, null, action);
+            PrivilegeScope.DATABASE, server, null, db, null, null, action);
   }
 
   public synchronized TSentryPrivilege grantDatabasePrivilege(String requestorUserName,
-      String roleName, String server, String db, String action, Boolean grantOption)
-  throws SentryUserException {
+                                                              String roleName, String server, String db, String action, Boolean grantOption)
+          throws SentryUserException {
     return grantPrivilege(requestorUserName, roleName,
-        PrivilegeScope.DATABASE, server, null, db, null, null, action, grantOption);
+            PrivilegeScope.DATABASE, server, null, db, null, null, action, grantOption);
   }
 
   public synchronized TSentryPrivilege grantTablePrivilege(String requestorUserName,
-      String roleName, String server, String db, String table, String action)
-  throws SentryUserException {
+                                                           String roleName, String server, String db, String table, String action)
+          throws SentryUserException {
     return grantPrivilege(requestorUserName, roleName, PrivilegeScope.TABLE, server,
-        null,
-        db, table, null, action);
+            null,
+            db, table, null, action);
   }
 
   public synchronized TSentryPrivilege grantTablePrivilege(String requestorUserName,
-      String roleName, String server, String db, String table, String action, Boolean grantOption)
-  throws SentryUserException {
+                                                           String roleName, String server, String db, String table, String action, Boolean grantOption)
+          throws SentryUserException {
     return grantPrivilege(requestorUserName, roleName, PrivilegeScope.TABLE, server,
-        null, db, table, null, action, grantOption);
+            null, db, table, null, action, grantOption);
   }
 
   public synchronized TSentryPrivilege grantColumnPrivilege(String requestorUserName,
-      String roleName, String server, String db, String table, String columnName, String action)
-  throws SentryUserException {
+                                                            String roleName, String server, String db, String table, String columnName, String action)
+          throws SentryUserException {
     return grantPrivilege(requestorUserName, roleName, PrivilegeScope.COLUMN, server,
-          null,
-          db, table, columnName, action);
+            null,
+            db, table, columnName, action);
   }
 
   public synchronized TSentryPrivilege grantColumnPrivilege(String requestorUserName,
-      String roleName, String server, String db, String table, String columnName, String action, Boolean grantOption)
-  throws SentryUserException {
+                                                            String roleName, String server, String db, String table, String columnName, String action, Boolean grantOption)
+          throws SentryUserException {
     return grantPrivilege(requestorUserName, roleName, PrivilegeScope.COLUMN, server,
-          null, db, table, columnName, action, grantOption);
+            null, db, table, columnName, action, grantOption);
   }
 
   public synchronized Set<TSentryPrivilege> grantColumnsPrivileges(String requestorUserName,
-      String roleName, String server, String db, String table, List<String> columnNames, String action)
-  throws SentryUserException {
+                                                                   String roleName, String server, String db, String table, List<String> columnNames, String action)
+          throws SentryUserException {
     return grantPrivileges(requestorUserName, roleName, PrivilegeScope.COLUMN, server,
             null,
             db, table, columnNames, action);
   }
 
   public synchronized Set<TSentryPrivilege> grantColumnsPrivileges(String requestorUserName,
-      String roleName, String server, String db, String table, List<String> columnNames, String action, Boolean grantOption)
-  throws SentryUserException {
+                                                                   String roleName, String server, String db, String table, List<String> columnNames, String action, Boolean grantOption)
+          throws SentryUserException {
     return grantPrivileges(requestorUserName, roleName, PrivilegeScope.COLUMN,
-        server,
-        null, db, table, columnNames, action, grantOption);
+            server,
+            null, db, table, columnNames, action, grantOption);
   }
 
   public synchronized Set<TSentryPrivilege> grantPrivileges(
-      String requestorUserName, String roleName,
-      Set<TSentryPrivilege> privileges) throws SentryUserException {
+          String requestorUserName, String roleName,
+          Set<TSentryPrivilege> privileges) throws SentryUserException {
     return grantPrivilegesCore(requestorUserName, roleName, privileges);
   }
 
@@ -548,7 +379,7 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
   private TSentryPrivilege grantPrivilegeCore(String requestorUserName, String roleName,
                                               TSentryPrivilege privilege) throws SentryUserException {
     Set<TSentryPrivilege> results =
-        grantPrivilegesCore(requestorUserName, roleName, ImmutableSet.of(privilege));
+            grantPrivilegesCore(requestorUserName, roleName, ImmutableSet.of(privilege));
     if (results != null && results.size() > 0) {
       return results.iterator().next();
     } else {
@@ -565,7 +396,7 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
     request.setPrivileges(privileges);
     try {
       TAlterSentryRoleGrantPrivilegeResponse response =
-          client.alter_sentry_role_grant_privilege(request);
+              client.alter_sentry_role_grant_privilege(request);
       Status.throwIfNotOk(response.getStatus());
       return response.getPrivileges();
     } catch (TException e) {
@@ -575,24 +406,24 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
 
   @VisibleForTesting
   public static TSentryAuthorizable setupSentryAuthorizable(
-      List<? extends Authorizable> authorizable) {
+          List<? extends Authorizable> authorizable) {
     TSentryAuthorizable tSentryAuthorizable = new TSentryAuthorizable();
 
     for (Authorizable authzble : authorizable) {
       if (authzble.getTypeName().equalsIgnoreCase(
-          DBModelAuthorizable.AuthorizableType.Server.toString())) {
+              DBModelAuthorizable.AuthorizableType.Server.toString())) {
         tSentryAuthorizable.setServer(authzble.getName());
       } else if (authzble.getTypeName().equalsIgnoreCase(
-          DBModelAuthorizable.AuthorizableType.URI.toString())) {
+              DBModelAuthorizable.AuthorizableType.URI.toString())) {
         tSentryAuthorizable.setUri(authzble.getName());
       } else if (authzble.getTypeName().equalsIgnoreCase(
-          DBModelAuthorizable.AuthorizableType.Db.toString())) {
+              DBModelAuthorizable.AuthorizableType.Db.toString())) {
         tSentryAuthorizable.setDb(authzble.getName());
       } else if (authzble.getTypeName().equalsIgnoreCase(
-          DBModelAuthorizable.AuthorizableType.Table.toString())) {
+              DBModelAuthorizable.AuthorizableType.Table.toString())) {
         tSentryAuthorizable.setTable(authzble.getName());
       } else if (authzble.getTypeName().equalsIgnoreCase(
-          DBModelAuthorizable.AuthorizableType.Column.toString())) {
+              DBModelAuthorizable.AuthorizableType.Column.toString())) {
         tSentryAuthorizable.setColumn(authzble.getName());
       }
     }
@@ -600,44 +431,46 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
   }
 
   private TSentryPrivilege grantPrivilege(String requestorUserName,
-      String roleName,
-      PrivilegeScope scope, String serverName, String uri, String db,
-      String table, String column, String action)  throws SentryUserException {
+                                          String roleName,
+                                          PrivilegeScope scope, String serverName, String uri, String db,
+                                          String table, String column, String action) throws SentryUserException {
     return grantPrivilege(requestorUserName, roleName, scope, serverName, uri,
-    db, table, column, action, false);
+            db, table, column, action, false);
   }
 
   private TSentryPrivilege grantPrivilege(String requestorUserName,
-      String roleName, PrivilegeScope scope, String serverName, String uri, String db, String table,
-      String column, String action, Boolean grantOption)
-  throws SentryUserException {
+
+                                          String roleName, PrivilegeScope scope, String serverName, String uri, String db, String table,
+                                          String column, String action, Boolean grantOption)
+          throws SentryUserException {
     TSentryPrivilege privilege =
-        convertToTSentryPrivilege(scope, serverName, uri, db, table, column, action, grantOption);
+            convertToTSentryPrivilege(scope, serverName, uri, db, table, column, action, grantOption);
     return grantPrivilegeCore(requestorUserName, roleName, privilege);
   }
 
   private Set<TSentryPrivilege> grantPrivileges(String requestorUserName,
-      String roleName,
-      PrivilegeScope scope, String serverName, String uri, String db,
-      String table, List<String> columns, String action)  throws SentryUserException {
+                                                String roleName,
+                                                PrivilegeScope scope, String serverName, String uri, String db,
+                                                String table, List<String> columns, String action) throws SentryUserException {
     return grantPrivileges(requestorUserName, roleName, scope, serverName, uri,
-    db, table, columns, action, false);
+            db, table, columns, action, false);
   }
 
   private Set<TSentryPrivilege> grantPrivileges(String requestorUserName,
-      String roleName, PrivilegeScope scope, String serverName, String uri, String db, String table,
-      List<String> columns, String action, Boolean grantOption)
-  throws SentryUserException {
+                                                String roleName, PrivilegeScope scope, String serverName, String uri, String db, String
+                                                        table,
+                                                List<String> columns, String action, Boolean grantOption)
+          throws SentryUserException {
     Set<TSentryPrivilege> privileges = convertColumnPrivileges(scope,
-        serverName, uri, db, table, columns, action, grantOption);
+            serverName, uri, db, table, columns, action, grantOption);
     return grantPrivilegesCore(requestorUserName, roleName, privileges);
   }
 
-  public synchronized void revokePrivileges(String requestorUserName, String roleName, Set<TSentryPrivilege> privileges) throws  SentryUserException {
+  public synchronized void revokePrivileges(String requestorUserName, String roleName, Set<TSentryPrivilege> privileges) throws SentryUserException {
     this.revokePrivilegesCore(requestorUserName, roleName, privileges);
   }
 
-  public synchronized void revokePrivilege(String requestorUserName, String roleName, TSentryPrivilege privilege) throws  SentryUserException {
+  public synchronized void revokePrivilege(String requestorUserName, String roleName, TSentryPrivilege privilege) throws SentryUserException {
     this.revokePrivilegeCore(requestorUserName, roleName, privilege);
 
   }
@@ -654,7 +487,7 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
     request.setPrivileges(privileges);
     try {
       TAlterSentryRoleRevokePrivilegeResponse response = client.alter_sentry_role_revoke_privilege(
-          request);
+              request);
       Status.throwIfNotOk(response.getStatus());
     } catch (TException e) {
       throw new SentryUserException(THRIFT_EXCEPTION_MESSAGE, e);
@@ -662,22 +495,22 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
   }
 
   public synchronized void revokeURIPrivilege(String requestorUserName,
-      String roleName, String server, String uri)
-  throws SentryUserException {
+                                              String roleName, String server, String uri)
+          throws SentryUserException {
     revokePrivilege(requestorUserName, roleName,
-        PrivilegeScope.URI, server, uri, null, null, null, AccessConstants.ALL);
+            PrivilegeScope.URI, server, uri, null, null, null, AccessConstants.ALL);
   }
 
   public synchronized void revokeURIPrivilege(String requestorUserName,
-      String roleName, String server, String uri, Boolean grantOption)
-  throws SentryUserException {
+                                              String roleName, String server, String uri, Boolean grantOption)
+          throws SentryUserException {
     revokePrivilege(requestorUserName, roleName,
-        PrivilegeScope.URI, server, uri, null, null, null, AccessConstants.ALL, grantOption);
+            PrivilegeScope.URI, server, uri, null, null, null, AccessConstants.ALL, grantOption);
   }
 
   public synchronized void revokeServerPrivilege(String requestorUserName,
-      String roleName, String server, String action)
-  throws SentryUserException {
+                                                 String roleName, String server, String action)
+          throws SentryUserException {
 
     // "ALL" and "*" should be synonyms for action and need to be unified with revokeServerPrivilege without
     // action explicitly specified.
@@ -686,12 +519,12 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
     }
 
     revokePrivilege(requestorUserName, roleName,
-        PrivilegeScope.SERVER, server, null, null, null, null, action);
+            PrivilegeScope.SERVER, server, null, null, null, null, action);
   }
 
   public synchronized void revokeServerPrivilege(String requestorUserName,
-      String roleName, String server, String action, Boolean grantOption)
-  throws SentryUserException {
+                                                 String roleName, String server, String action, Boolean grantOption)
+          throws SentryUserException {
 
     // "ALL" and "*" should be synonyms for action and need to be unified with revokeServerPrivilege without
     // action explicitly specified.
@@ -700,7 +533,7 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
     }
 
     revokePrivilege(requestorUserName, roleName,
-        PrivilegeScope.SERVER, server, null, null, null, null, action, grantOption);
+            PrivilegeScope.SERVER, server, null, null, null, null, action, grantOption);
   }
 
   @Deprecated
@@ -709,97 +542,98 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
    *  String roleName, String server, String action, Boolean grantOption)
    */
   public synchronized void revokeServerPrivilege(String requestorUserName,
-      String roleName, String server, boolean grantOption)
-  throws SentryUserException {
+                                                 String roleName, String server, boolean grantOption)
+          throws SentryUserException {
     revokePrivilege(requestorUserName, roleName,
-      PrivilegeScope.SERVER, server, null, null, null, null, AccessConstants.ALL, grantOption);
+            PrivilegeScope.SERVER, server, null, null, null, null, AccessConstants.ALL, grantOption);
   }
 
   public synchronized void revokeDatabasePrivilege(String requestorUserName,
-      String roleName, String server, String db, String action)
-  throws SentryUserException {
+                                                   String roleName, String server, String db, String action)
+          throws SentryUserException {
     revokePrivilege(requestorUserName, roleName,
-        PrivilegeScope.DATABASE, server, null, db, null, null, action);
+            PrivilegeScope.DATABASE, server, null, db, null, null, action);
   }
 
   public synchronized void revokeDatabasePrivilege(String requestorUserName,
-      String roleName, String server, String db, String action, Boolean grantOption)
-  throws SentryUserException {
+                                                   String roleName, String server, String db, String action, Boolean grantOption)
+          throws SentryUserException {
     revokePrivilege(requestorUserName, roleName,
-        PrivilegeScope.DATABASE, server, null, db, null, null, action, grantOption);
+            PrivilegeScope.DATABASE, server, null, db, null, null, action, grantOption);
   }
 
   public synchronized void revokeTablePrivilege(String requestorUserName,
-      String roleName, String server, String db, String table, String action)
-  throws SentryUserException {
+                                                String roleName, String server, String db, String table, String action)
+          throws SentryUserException {
     revokePrivilege(requestorUserName, roleName,
-        PrivilegeScope.TABLE, server, null,
-        db, table, null, action);
+            PrivilegeScope.TABLE, server, null,
+            db, table, null, action);
   }
 
   public synchronized void revokeTablePrivilege(String requestorUserName,
-      String roleName, String server, String db, String table, String action, Boolean grantOption)
-  throws SentryUserException {
+                                                String roleName, String server, String db, String table, String action, Boolean grantOption)
+          throws SentryUserException {
     revokePrivilege(requestorUserName, roleName,
-        PrivilegeScope.TABLE, server, null,
-        db, table, null, action, grantOption);
+            PrivilegeScope.TABLE, server, null,
+            db, table, null, action, grantOption);
   }
 
   public synchronized void revokeColumnPrivilege(String requestorUserName, String roleName,
-      String server, String db, String table, String columnName, String action)
-  throws SentryUserException {
+                                                 String server, String db, String table, String columnName, String action)
+          throws SentryUserException {
     ImmutableList.Builder<String> listBuilder = ImmutableList.builder();
     listBuilder.add(columnName);
     revokePrivilege(requestorUserName, roleName,
-        PrivilegeScope.COLUMN, server, null,
-        db, table, listBuilder.build(), action);
+            PrivilegeScope.COLUMN, server, null,
+            db, table, listBuilder.build(), action);
   }
 
   public synchronized void revokeColumnPrivilege(String requestorUserName, String roleName,
-      String server, String db, String table, String columnName, String action, Boolean grantOption)
-  throws SentryUserException {
+                                                 String server, String db, String table, String columnName, String action, Boolean grantOption)
+          throws SentryUserException {
     ImmutableList.Builder<String> listBuilder = ImmutableList.builder();
     listBuilder.add(columnName);
     revokePrivilege(requestorUserName, roleName,
-        PrivilegeScope.COLUMN, server, null,
-        db, table, listBuilder.build(), action, grantOption);
+            PrivilegeScope.COLUMN, server, null,
+            db, table, listBuilder.build(), action, grantOption);
   }
 
   public synchronized void revokeColumnsPrivilege(String requestorUserName, String roleName,
-      String server, String db, String table, List<String> columns, String action)
-  throws SentryUserException {
+                                                  String server, String db, String table, List<String> columns, String action)
+          throws SentryUserException {
     revokePrivilege(requestorUserName, roleName,
-        PrivilegeScope.COLUMN, server, null,
-        db, table, columns, action);
+            PrivilegeScope.COLUMN, server, null,
+            db, table, columns, action);
   }
 
   public synchronized void revokeColumnsPrivilege(String requestorUserName, String roleName,
-      String server, String db, String table, List<String> columns, String action, Boolean grantOption)
-  throws SentryUserException {
+                                                  String server, String db, String table, List<String> columns, String action, Boolean grantOption)
+          throws SentryUserException {
     revokePrivilege(requestorUserName, roleName,
-        PrivilegeScope.COLUMN, server, null,
-        db, table, columns, action, grantOption);
+            PrivilegeScope.COLUMN, server, null,
+            db, table, columns, action, grantOption);
   }
 
   private void revokePrivilege(String requestorUserName,
-      String roleName, PrivilegeScope scope, String serverName, String uri,
-      String db, String table, List<String> columns, String action)
-  throws SentryUserException {
+                               String roleName, PrivilegeScope scope, String serverName, String uri,
+                               String db, String table, List<String> columns, String action)
+          throws SentryUserException {
     this.revokePrivilege(requestorUserName, roleName, scope, serverName, uri, db, table, columns, action, false);
   }
 
   private void revokePrivilege(String requestorUserName, String roleName,
-      PrivilegeScope scope, String serverName, String uri, String db, String table, List<String> columns,
-      String action, Boolean grantOption)
-  throws SentryUserException {
+                               PrivilegeScope scope, String serverName, String uri, String db, String table, List<String> columns,
+                               String action, Boolean grantOption)
+          throws SentryUserException {
     Set<TSentryPrivilege> privileges = convertColumnPrivileges(scope,
-        serverName, uri, db, table, columns, action, grantOption);
+            serverName, uri, db, table, columns, action, grantOption);
     this.revokePrivilegesCore(requestorUserName, roleName, privileges);
   }
 
   private Set<TSentryPrivilege> convertColumnPrivileges(
-      PrivilegeScope scope, String serverName, String uri, String db, String table, List<String> columns,
-      String action, Boolean grantOption) {
+          PrivilegeScope scope, String serverName, String uri, String db, String
+          table, List<String> columns,
+          String action, Boolean grantOption) {
     ImmutableSet.Builder<TSentryPrivilege> setBuilder = ImmutableSet.builder();
     if (columns == null || columns.isEmpty()) {
       TSentryPrivilege privilege = new TSentryPrivilege();
@@ -832,8 +666,9 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
   }
 
   private TSentryPrivilege convertToTSentryPrivilege(
-      PrivilegeScope scope, String serverName, String uri, String db, String table, String column,
-      String action, Boolean grantOption) {
+          PrivilegeScope scope, String serverName, String uri, String db, String table, String
+          column,
+          String action, Boolean grantOption) {
     TSentryPrivilege privilege = new TSentryPrivilege();
     privilege.setPrivilegeScope(scope.toString());
     privilege.setServerName(serverName);
@@ -858,15 +693,16 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
     return TSentryGrantOption.FALSE;
   }
 
-  public synchronized Set<String> listPrivilegesForProvider(Set<String> groups, Set<String> users,
-      ActiveRoleSet roleSet, Authorizable... authorizable) throws SentryUserException {
+  public synchronized Set<String> listPrivilegesForProvider
+          (Set<String> groups, Set<String> users,
+           ActiveRoleSet roleSet, Authorizable... authorizable) throws SentryUserException {
     TSentryActiveRoleSet thriftRoleSet = new TSentryActiveRoleSet(roleSet.isAll(), roleSet.getRoles());
     TListSentryPrivilegesForProviderRequest request =
-        new TListSentryPrivilegesForProviderRequest(ThriftConstants.
-            TSENTRY_SERVICE_VERSION_CURRENT, groups, thriftRoleSet);
+            new TListSentryPrivilegesForProviderRequest(ThriftConstants.
+                    TSENTRY_SERVICE_VERSION_CURRENT, groups, thriftRoleSet);
     if (authorizable != null && authorizable.length > 0) {
       TSentryAuthorizable tSentryAuthorizable = setupSentryAuthorizable(Lists
-          .newArrayList(authorizable));
+              .newArrayList(authorizable));
       request.setAuthorizableHierarchy(tSentryAuthorizable);
     }
     if (users != null) {
@@ -883,25 +719,25 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
 
   @Override
   public synchronized void grantRoleToGroup(String requestorUserName,
-      String groupName, String roleName)
-  throws SentryUserException {
+                                            String groupName, String roleName)
+          throws SentryUserException {
     grantRoleToGroups(requestorUserName, roleName, Sets.newHashSet(groupName));
   }
 
   @Override
   public synchronized void revokeRoleFromGroup(String requestorUserName,
-      String groupName, String roleName)
-  throws SentryUserException {
+                                               String groupName, String roleName)
+          throws SentryUserException {
     revokeRoleFromGroups(requestorUserName, roleName, Sets.newHashSet(groupName));
   }
 
   @Override
   public synchronized void grantRoleToGroups(String requestorUserName,
-      String roleName, Set<String> groups)
-  throws SentryUserException {
+                                             String roleName, Set<String> groups)
+          throws SentryUserException {
     TAlterSentryRoleAddGroupsRequest request = new TAlterSentryRoleAddGroupsRequest(
-        ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT, requestorUserName,
-        roleName, convert2TGroups(groups));
+            ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT, requestorUserName,
+            roleName, convert2TGroups(groups));
     try {
       TAlterSentryRoleAddGroupsResponse response = client.alter_sentry_role_add_groups(request);
       Status.throwIfNotOk(response.getStatus());
@@ -912,11 +748,11 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
 
   @Override
   public synchronized void revokeRoleFromGroups(String requestorUserName,
-      String roleName, Set<String> groups)
-  throws SentryUserException {
+                                                String roleName, Set<String> groups)
+          throws SentryUserException {
     TAlterSentryRoleDeleteGroupsRequest request = new TAlterSentryRoleDeleteGroupsRequest(
-        ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT, requestorUserName,
-        roleName, convert2TGroups(groups));
+            ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT, requestorUserName,
+            roleName, convert2TGroups(groups));
     try {
       TAlterSentryRoleDeleteGroupsResponse response = client.alter_sentry_role_delete_groups(request);
       Status.throwIfNotOk(response.getStatus());
@@ -927,21 +763,21 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
 
   @Override
   public synchronized void grantRoleToUser(String requestorUserName, String userName,
-      String roleName) throws SentryUserException {
+                                           String roleName) throws SentryUserException {
     grantRoleToUsers(requestorUserName, roleName, Sets.newHashSet(userName));
   }
 
   @Override
   public synchronized void revokeRoleFromUser(String requestorUserName, String userName,
-      String roleName) throws SentryUserException {
+                                              String roleName) throws SentryUserException {
     revokeRoleFromUsers(requestorUserName, roleName, Sets.newHashSet(userName));
   }
 
   @Override
   public synchronized void grantRoleToUsers(String requestorUserName, String roleName,
-      Set<String> users) throws SentryUserException {
+                                            Set<String> users) throws SentryUserException {
     TAlterSentryRoleAddUsersRequest request = new TAlterSentryRoleAddUsersRequest(
-        ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT, requestorUserName, roleName, users);
+            ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT, requestorUserName, roleName, users);
     try {
       TAlterSentryRoleAddUsersResponse response = client.alter_sentry_role_add_users(request);
       Status.throwIfNotOk(response.getStatus());
@@ -952,9 +788,9 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
 
   @Override
   public synchronized void revokeRoleFromUsers(String requestorUserName, String roleName,
-      Set<String> users) throws SentryUserException {
+                                               Set<String> users) throws SentryUserException {
     TAlterSentryRoleDeleteUsersRequest request = new TAlterSentryRoleDeleteUsersRequest(
-        ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT, requestorUserName, roleName, users);
+            ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT, requestorUserName, roleName, users);
     try {
       TAlterSentryRoleDeleteUsersResponse response = client.alter_sentry_role_delete_users(request);
       Status.throwIfNotOk(response.getStatus());
@@ -974,13 +810,13 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
   }
 
   public synchronized void dropPrivileges(String requestorUserName,
-      List<? extends Authorizable> authorizableObjects)
-      throws SentryUserException {
+                                          List<? extends Authorizable> authorizableObjects)
+          throws SentryUserException {
     TSentryAuthorizable tSentryAuthorizable = setupSentryAuthorizable(authorizableObjects);
 
     TDropPrivilegesRequest request = new TDropPrivilegesRequest(
-        ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT, requestorUserName,
-        tSentryAuthorizable);
+            ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT, requestorUserName,
+            tSentryAuthorizable);
     try {
       TDropPrivilegesResponse response = client.drop_sentry_privilege(request);
       Status.throwIfNotOk(response.getStatus());
@@ -990,35 +826,36 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
   }
 
   public synchronized void renamePrivileges(String requestorUserName,
-      List<? extends Authorizable> oldAuthorizables,
-      List<? extends Authorizable> newAuthorizables) throws SentryUserException {
+                                            List<? extends Authorizable> oldAuthorizables,
+                                            List<? extends Authorizable> newAuthorizables) throws SentryUserException {
     TSentryAuthorizable tOldSentryAuthorizable = setupSentryAuthorizable(oldAuthorizables);
     TSentryAuthorizable tNewSentryAuthorizable = setupSentryAuthorizable(newAuthorizables);
 
     TRenamePrivilegesRequest request = new TRenamePrivilegesRequest(
-        ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT, requestorUserName,
-        tOldSentryAuthorizable, tNewSentryAuthorizable);
+            ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT, requestorUserName,
+            tOldSentryAuthorizable, tNewSentryAuthorizable);
     try {
       TRenamePrivilegesResponse response = client
-          .rename_sentry_privilege(request);
+              .rename_sentry_privilege(request);
       Status.throwIfNotOk(response.getStatus());
     } catch (TException e) {
       throw new SentryUserException(THRIFT_EXCEPTION_MESSAGE, e);
     }
   }
 
-  public synchronized Map<TSentryAuthorizable, TSentryPrivilegeMap> listPrivilegsbyAuthorizable(
-      String requestorUserName,
-      Set<List<? extends Authorizable>> authorizables, Set<String> groups,
-      ActiveRoleSet roleSet) throws SentryUserException {
+  public synchronized Map<TSentryAuthorizable, TSentryPrivilegeMap> listPrivilegsbyAuthorizable
+          (
+                  String requestorUserName,
+                  Set<List<? extends Authorizable>> authorizables, Set<String> groups,
+                  ActiveRoleSet roleSet) throws SentryUserException {
     Set<TSentryAuthorizable> authSet = Sets.newTreeSet();
 
     for (List<? extends Authorizable> authorizableHierarchy : authorizables) {
       authSet.add(setupSentryAuthorizable(authorizableHierarchy));
     }
     TListSentryPrivilegesByAuthRequest request = new TListSentryPrivilegesByAuthRequest(
-        ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT, requestorUserName,
-        authSet);
+            ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT, requestorUserName,
+            authSet);
     if (groups != null) {
       request.setGroups(groups);
     }
@@ -1028,7 +865,7 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
 
     try {
       TListSentryPrivilegesByAuthResponse response = client
-          .list_sentry_privileges_by_authorizable(request);
+              .list_sentry_privileges_by_authorizable(request);
       Status.throwIfNotOk(response.getStatus());
       return response.getPrivilegesMapByAuth();
     } catch (TException e) {
@@ -1041,6 +878,7 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
    * propertyName, or if propertyName does not exist, the defaultValue.
    * There is no "requestorUserName" because this is regarded as an
    * internal interface.
+   *
    * @param propertyName Config attribute to search for
    * @param defaultValue String to return if not found
    * @return The value of the propertyName
@@ -1062,44 +900,33 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
     }
   }
 
-  public synchronized void close() {
-    if (isConnected()) {
-      transport.close();
-    }
-  }
-
-  private boolean isConnected() {
-    return transport != null && transport.isOpen();
-  }
-
   /**
    * Import the sentry mapping data, convert the mapping data from map structure to
    * TSentryMappingData, and call the import API.
-   * 
-   * @param policyFileMappingData
-   *        Include 2 maps to save the mapping data, the following is the example of the data
-   *        structure:
-   *        for the following mapping data:
-   *        group1=role1,role2
-   *        group2=role2,role3
-   *        role1=server=server1->db=db1
-   *        role2=server=server1->db=db1->table=tbl1,server=server1->db=db1->table=tbl2
-   *        role3=server=server1->url=hdfs://localhost/path
-   * 
-   *        The policyFileMappingData will be inputed as:
-   *        {
-   *          groups={[group1={role1, role2}], group2=[role2, role3]},
-   *          roles={role1=[server=server1->db=db1],
-   *                 role2=[server=server1->db=db1->table=tbl1,server=server1->db=db1->table=tbl2],
-   *                 role3=[server=server1->url=hdfs://localhost/path]
-   *                }
-   *        }
-   * @param requestorUserName
-   *        The name of the request user
+   *
+   * @param policyFileMappingData Include 2 maps to save the mapping data, the following is the example of the data
+   *                              structure:
+   *                              for the following mapping data:
+   *                              group1=role1,role2
+   *                              group2=role2,role3
+   *                              role1=server=server1->db=db1
+   *                              role2=server=server1->db=db1->table=tbl1,server=server1->db=db1->table=tbl2
+   *                              role3=server=server1->url=hdfs://localhost/path
+   *                              <p>
+   *                              The policyFileMappingData will be inputed as:
+   *                              {
+   *                              groups={[group1={role1, role2}], group2=[role2, role3]},
+   *                              roles={role1=[server=server1->db=db1],
+   *                              role2=[server=server1->db=db1->table=tbl1,server=server1->db=db1->table=tbl2],
+   *                              role3=[server=server1->url=hdfs://localhost/path]
+   *                              }
+   *                              }
+   * @param requestorUserName     The name of the request user
    */
-  public synchronized void importPolicy(Map<String, Map<String, Set<String>>> policyFileMappingData,
-      String requestorUserName, boolean isOverwriteRole)
-      throws SentryUserException {
+  public synchronized void importPolicy
+  (Map<String, Map<String, Set<String>>> policyFileMappingData,
+   String requestorUserName, boolean isOverwriteRole)
+          throws SentryUserException {
     try {
       TSentryMappingData tSentryMappingData = new TSentryMappingData();
       // convert the mapping data for [group,role] from map structure to
@@ -1109,11 +936,11 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
       // convert the mapping data for [role,privilege] from map structure to
       // TSentryMappingData.RolePrivilegesMap
       tSentryMappingData
-          .setRolePrivilegesMap(convertRolePrivilegesMapForSentryDB(policyFileMappingData
-              .get(PolicyFileConstants.ROLES)));
+              .setRolePrivilegesMap(convertRolePrivilegesMapForSentryDB(policyFileMappingData
+                      .get(PolicyFileConstants.ROLES)));
       TSentryImportMappingDataRequest request = new TSentryImportMappingDataRequest(
-          ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT, requestorUserName, isOverwriteRole,
-          tSentryMappingData);
+              ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT, requestorUserName, isOverwriteRole,
+              tSentryMappingData);
       TSentryImportMappingDataResponse response = client.import_sentry_mapping_data(request);
       Status.throwIfNotOk(response.getStatus());
     } catch (TException e) {
@@ -1124,7 +951,7 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
   // convert the mapping data for [role,privilege] from map structure to
   // TSentryMappingData.RolePrivilegesMap
   private Map<String, Set<TSentryPrivilege>> convertRolePrivilegesMapForSentryDB(
-      Map<String, Set<String>> rolePrivilegesMap) {
+          Map<String, Set<String>> rolePrivilegesMap) {
     Map<String, Set<TSentryPrivilege>> rolePrivilegesMapResult = Maps.newHashMap();
     if (rolePrivilegesMap != null) {
       for (Map.Entry<String, Set<String>> entry : rolePrivilegesMap.entrySet()) {
@@ -1140,10 +967,11 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
   }
 
   // export the sentry mapping data with map structure
-  public synchronized Map<String, Map<String, Set<String>>> exportPolicy(String requestorUserName,
-      String objectPath) throws SentryUserException {
+  public synchronized Map<String, Map<String, Set<String>>> exportPolicy(String
+                                                                                 requestorUserName,
+                                                                         String objectPath) throws SentryUserException {
     TSentryExportMappingDataRequest request = new TSentryExportMappingDataRequest(
-        ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT, requestorUserName);
+            ThriftConstants.TSENTRY_SERVICE_VERSION_CURRENT, requestorUserName);
     request.setObjectPath(objectPath);
     try {
       TSentryExportMappingDataResponse response = client.export_sentry_mapping_data(request);
@@ -1162,7 +990,7 @@ public class SentryPolicyServiceClientDefaultImpl implements SentryPolicyService
   // convert the mapping data for [roleName,privilege] from TSentryMappingData.RolePrivilegesMap to
   // map structure
   private Map<String, Set<String>> convertRolePrivilegesMapForPolicyFile(
-      Map<String, Set<TSentryPrivilege>> rolePrivilegesMap) {
+          Map<String, Set<TSentryPrivilege>> rolePrivilegesMap) {
     Map<String, Set<String>> rolePrivilegesMapForFile = Maps.newHashMap();
     if (rolePrivilegesMap != null) {
       for (Map.Entry<String, Set<TSentryPrivilege>> entry : rolePrivilegesMap.entrySet()) {

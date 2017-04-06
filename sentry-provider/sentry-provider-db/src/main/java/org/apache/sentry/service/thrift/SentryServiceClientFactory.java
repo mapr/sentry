@@ -22,6 +22,7 @@ import java.lang.reflect.Proxy;
 
 import org.apache.hadoop.conf.Configuration;
 
+import org.apache.sentry.core.common.transport.RetryClientInvocationHandler;
 import org.apache.sentry.provider.db.service.thrift.SentryPolicyServiceClient;
 import org.apache.sentry.provider.db.service.thrift.SentryPolicyServiceClientDefaultImpl;
 import org.apache.sentry.service.thrift.ServiceConstants.ClientConfig;
@@ -43,7 +44,8 @@ public final class SentryServiceClientFactory {
       return (SentryPolicyServiceClient) Proxy
           .newProxyInstance(SentryPolicyServiceClientDefaultImpl.class.getClassLoader(),
               SentryPolicyServiceClientDefaultImpl.class.getInterfaces(),
-              new RetryClientInvocationHandler(conf));
+            new RetryClientInvocationHandler(conf,
+              new SentryPolicyServiceClientDefaultImpl(conf)));
     }
   }
 }
