@@ -39,9 +39,6 @@ public class SimpleDBProviderBackend implements ProviderBackend {
   private static final Logger LOGGER = LoggerFactory
       .getLogger(SimpleDBProviderBackend.class);
 
-  private SentryPolicyServiceClient policyServiceClient;
-
-  private volatile boolean initialized;
   private Configuration conf; 
 
   public SimpleDBProviderBackend(Configuration conf, String resourcePath) throws Exception {
@@ -50,15 +47,7 @@ public class SimpleDBProviderBackend implements ProviderBackend {
   }
 
   public SimpleDBProviderBackend(Configuration conf) throws Exception {
-    this(SentryServiceClientFactory.create(conf));
-    this.initialized = false;
     this.conf = conf;
-  }
-
-  @VisibleForTesting
-  public SimpleDBProviderBackend(SentryPolicyServiceClient policyServiceClient) throws IOException {
-    this.initialized = false;
-    this.policyServiceClient = policyServiceClient;
   }
 
   /**
@@ -66,10 +55,7 @@ public class SimpleDBProviderBackend implements ProviderBackend {
    */
   @Override
   public void initialize(ProviderBackendContext context) {
-    if (initialized) {
-      throw new IllegalStateException("Backend has already been initialized, cannot be initialized twice");
-    }
-    this.initialized = true;
+    //Noop
   }
 
   /**
@@ -81,22 +67,27 @@ public class SimpleDBProviderBackend implements ProviderBackend {
   }
 
   private ImmutableSet<String> getPrivileges(int retryCount, Set<String> groups, ActiveRoleSet roleSet, Authorizable... authorizableHierarchy) {
-    if (!initialized) {
-      throw new IllegalStateException("Backend has not been properly initialized");
-    }
+    SentryPolicyServiceClient policyServiceClient = null;
+
     try {
-      return ImmutableSet.copyOf(getSentryClient().listPrivilegesForProvider(groups, roleSet, authorizableHierarchy));
+      policyServiceClient = SentryServiceClientFactory.create(conf);
     } catch (Exception e) {
-      policyServiceClient = null;
-      if (retryCount > 0) {
-        return getPrivileges(retryCount - 1, groups, roleSet, authorizableHierarchy);
-      } else {
-        String msg = "Unable to obtain privileges from server: " + e.getMessage();
-        LOGGER.error(msg, e);
-        try {
+            LOGGER.error("Error connecting to Sentry ['{}'] !!",
+                        e.getMessage());
+    }
+    if(policyServiceClient!= null) {
+      try {
+        return ImmutableSet.copyOf(policyServiceClient.listPrivilegesForProvider(groups, roleSet, authorizableHierarchy));
+      } catch (Exception e) {
+        if (retryCount > 0) {
+          return getPrivileges(retryCount - 1, groups, roleSet, authorizableHierarchy);
+        } else {
+          String msg = "Unable to obtain privileges from server: " + e.getMessage();
+          LOGGER.error(msg, e);
+        }
+      } finally {
+        if(policyServiceClient != null) {
           policyServiceClient.close();
-        } catch (Exception ex2) {
-          // Ignore
         }
       }
     }
@@ -113,32 +104,14 @@ public class SimpleDBProviderBackend implements ProviderBackend {
 
   @Override
   public void close() {
-    if (policyServiceClient != null) {
-      policyServiceClient.close();
-    }
+    //Noop
   }
 
-  private SentryPolicyServiceClient getSentryClient() {
-    if (policyServiceClient == null) {
-      try {
-        policyServiceClient = SentryServiceClientFactory.create(conf);
-      } catch (Exception e) {
-        LOGGER.error("Error connecting to Sentry ['{}'] !!",
-            e.getMessage());
-        policyServiceClient = null;
-        return null;
-      }
-    }
-    return policyServiceClient;
-  }
   /**
    * SimpleDBProviderBackend does not implement validatePolicy()
    */
   @Override
   public void validatePolicy(boolean strictValidation) throws SentryConfigurationException {
-    if (!initialized) {
-      throw new IllegalStateException("Backend has not been properly initialized");
-    }
-    // db provider does not implement validation
+    //Noop
   }
 }
