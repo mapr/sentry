@@ -973,7 +973,7 @@ public class SentryStore {
       if ((authHierarchy != null) && (authHierarchy.getServer() != null)) {
         filters.append("&& serverName == \"" + authHierarchy.getServer().toLowerCase() + "\"");
         if (authHierarchy.getDb() != null) {
-          filters.append(" && ((dbName == \"" + authHierarchy.getDb().toLowerCase() + "\") || (dbName == \"__NULL__\")) && (URI == \"__NULL__\")");
+          filters.append(" && ((dbName == \"" + authHierarchy.getDb().toLowerCase().replace("`", "") + "\") || (dbName == \"__NULL__\")) && (URI == \"__NULL__\")");
           if ((authHierarchy.getTable() != null)
               && !AccessConstants.ALL
                   .equalsIgnoreCase(authHierarchy.getTable())) {

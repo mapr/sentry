@@ -118,19 +118,21 @@ public class DBWildcardPrivilege implements Privilege {
   private boolean impliesKeyValue(KeyValue policyPart, KeyValue requestPart) {
     Preconditions.checkState(policyPart.getKey().equalsIgnoreCase(requestPart.getKey()),
         "Please report, this method should not be called with two different keys");
+    KeyValue normPart = new KeyValue(requestPart.getKey(), requestPart.getValue().replace("`", ""));
+    
     if(policyPart.getValue().equals(AccessConstants.ALL) ||
-        policyPart.getValue().equalsIgnoreCase("ALL") || policyPart.equals(requestPart)) {
+        policyPart.getValue().equalsIgnoreCase("ALL") || policyPart.equals(normPart)) {
       return true;
     } else if (!ProviderConstants.PRIVILEGE_NAME.equalsIgnoreCase(policyPart.getKey())
-        && AccessConstants.ALL.equalsIgnoreCase(requestPart.getValue())) {
+        && AccessConstants.ALL.equalsIgnoreCase(normPart.getValue())) {
       /* privilege request is to match with any object of given type */
       return true;
     } else if (!ProviderConstants.PRIVILEGE_NAME.equalsIgnoreCase(policyPart.getKey())
-        && AccessConstants.SOME.equalsIgnoreCase(requestPart.getValue())) {
+        && AccessConstants.SOME.equalsIgnoreCase(normPart.getValue())) {
       /* privilege request is to match with any object of given type */
       return true;
     } else if(policyPart.getKey().equalsIgnoreCase(AuthorizableType.URI.name())) {
-      return impliesURI(policyPart.getValue(), requestPart.getValue());
+      return impliesURI(policyPart.getValue(), normPart.getValue());
     }
     return false;
   }
