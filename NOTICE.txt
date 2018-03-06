@@ -1,5 +1,11 @@
 Apache Sentry
-Copyright 2016 The Apache Software Foundation
+
+Copyright (c) 2016 The Apache Software Foundation
+
+Source code: git://git.apache.org/sentry.git
+
+License: Apache License, Version 2.0
+http://www.apache.org/licenses/LICENSE-2.0.html
 
 This product includes software developed at
 The Apache Software Foundation (http://www.apache.org/).
