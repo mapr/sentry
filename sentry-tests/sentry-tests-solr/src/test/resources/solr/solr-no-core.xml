@@ -24,7 +24,7 @@
   <str name="infoHandler">org.apache.solr.handler.admin.SecureInfoHandler</str>
 
   <solrcloud>
-    <str name="host">127.0.0.1</str>
+    <str name="host">1.7.0-mapr-1803.0.1</str>
     <str name="hostContext">${hostContext:solr}</str>
     <int name="hostPort">${hostPort:8983}</int>
     <int name="zkClientTimeout">${solr.zkclienttimeout:30000}</int>
