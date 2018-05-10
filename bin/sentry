@@ -77,7 +77,7 @@ while [ $# -gt 0 ]; do    # Until you run out of parameters . . .
       ;;
   esac
 done
-export HADOOP_OPTS="$HADOOP_OPTS ${MAPR_ECOSYSTEM_SERVER_LOGIN_OPTS}"
+export HADOOP_OPTS="$HADOOP_OPTS ${MAPR_ECOSYSTEM_LOGIN_OPTS}"
 export _CMD_JAR=sentry-core-common-*.jar
 for f in ${SENTRY_HOME}/lib/*.jar; do
   HADOOP_CLASSPATH=${HADOOP_CLASSPATH}:${f}
