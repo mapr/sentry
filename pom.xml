@@ -70,7 +70,7 @@ limitations under the License.
     <guava.version>11.0.2</guava.version>
     <hadoop.version>2.7.0-mapr-1607</hadoop.version>
     <hamcrest.version>1.3</hamcrest.version>
-    <hive-v2.version>2.1.1-mapr-1710</hive-v2.version>
+    <hive-v2.version>2.3.3-mapr</hive-v2.version>
     <hive.version>1.2.0-mapr-1710</hive.version>
     <jackson.version>1.8.8</jackson.version>
     <jdo-api.version>3.0.1</jdo-api.version>
@@ -892,6 +892,20 @@ limitations under the License.
         <enabled>true</enabled>
       </snapshots>
     </repository>
+
+    <!-- TODO: Remove after 6.1.0 release -->
+    <repository>
+      <id>repository_cv</id>
+      <name>Private MapR repo for CyberVision</name>
+      <url>http://repository_cv.mapr.com/nexus/content/groups/mapr-public</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
+
   </repositories>
 
 </project>
