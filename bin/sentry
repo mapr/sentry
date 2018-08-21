@@ -18,6 +18,7 @@
 bin=`dirname "$0"`
 myhome=`cd "$bin/.."; pwd`
 RUN_CONFIG_TOOL=0
+IS_SCHEMA_TOOL=false
 
 # the root of the Hive installation
 if [[ -z $SENTRY_HOME ]] ; then
@@ -60,6 +61,7 @@ if [ ! -f ${HADOOP} ]; then
 fi
 
 # If we are running config-tool then invoke it via separate script. It needs Hive classpatch and config
+# Also we need to define whether we use schema-tool. It requires different login options.
 args=()
 while [ $# -gt 0 ]; do    # Until you run out of parameters . . .
   case "$1" in
@@ -67,6 +69,9 @@ while [ $# -gt 0 ]; do    # Until you run out of parameters . . .
       if [ "$2" = "config-tool" ]
       then
         RUN_CONFIG_TOOL=1
+      elif [ "$2" = "schema-tool" ]
+      then
+        IS_SCHEMA_TOOL=true
       fi
       args+=" $1"
       shift
@@ -77,7 +82,13 @@ while [ $# -gt 0 ]; do    # Until you run out of parameters . . .
       ;;
   esac
 done
-export HADOOP_OPTS="$HADOOP_OPTS ${MAPR_ECOSYSTEM_LOGIN_OPTS}"
+# We need to pass simple login opts for schema-tool command, not server.
+# Without this schema-tool gets stuck after it is finished.
+if [ "$IS_SCHEMA_TOOL" = true ]; then
+  export HADOOP_OPTS="$HADOOP_OPTS ${MAPR_ECOSYSTEM_LOGIN_OPTS}"
+else
+  export HADOOP_OPTS="$HADOOP_OPTS ${MAPR_ECOSYSTEM_SERVER_LOGIN_OPTS}"
+fi
 export _CMD_JAR=sentry-core-common-*.jar
 for f in ${SENTRY_HOME}/lib/*.jar; do
   HADOOP_CLASSPATH=${HADOOP_CLASSPATH}:${f}
