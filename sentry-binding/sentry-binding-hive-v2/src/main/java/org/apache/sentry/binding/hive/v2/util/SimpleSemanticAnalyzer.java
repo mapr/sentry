@@ -37,117 +37,117 @@ public class SimpleSemanticAnalyzer {
    * CREATE [TEMPORARY] [EXTERNAL] TABLE [IF NOT EXISTS] [db_name.]table_name ...
    */
   private static final String CREATE_TABLE_REGEX = "^(CREATE)\\s+" + "(TEMPORARY\\s+)?"
-      + "(EXTERNAL\\s+)?" + "TABLE\\s+" + "(IF\\s+NOT\\s+EXISTS\\s+)?" + "([A-Za-z0-9._]+)";
+      + "(EXTERNAL\\s+)?" + "TABLE\\s+" + "(IF\\s+NOT\\s+EXISTS\\s+)?" + "([A-Za-z0-9._`]+)";
 
   /**
    * DROP (DATABASE|SCHEMA) [IF EXISTS] database_name [RESTRICT|CASCADE];
    */
   private static final String DROP_DB_REGEX = "^DROP\\s+" + "(DATABASE|SCHEMA)\\s+"
-      + "(IF\\s+EXISTS\\s+)?" + "([A-Za-z0-9_]+)";
+      + "(IF\\s+EXISTS\\s+)?" + "`?([A-Za-z0-9_]+)`?";
 
   /**
    * DROP TABLE [IF EXISTS] table_name;
    */
   private static final String DROP_TABLE_REGEX = "^DROP\\s+" + "TABLE\\s+" + "(IF\\s+EXISTS\\s+)?"
-      + "([A-Za-z0-9._]+)";
+      + "([A-Za-z0-9._`]+)";
 
   /**
    * DROP VIEW [IF EXISTS] view_name;
    */
   private static final String DROP_VIEW_REGEX = "^DROP\\s+" + "VIEW\\s+" + "(IF\\s+EXISTS\\s+)?"
-      + "([A-Za-z0-9_].+)";
+      + "([A-Za-z0-9._`]+)";
 
   /**
    * DESCRIBE DATABASE|SCHEMA [EXTENDED] db_name;
    */
   private static final String DESCRIBE_DB_REGEX = "^DESCRIBE\\s+" + "(DATABASE|SCHEMA)\\s+"
-      + "(EXTENDED\\s+)?" + "([A-Za-z0-9_]+)";
+      + "(EXTENDED\\s+)?" + "`?([A-Za-z0-9_]+)`?";
 
   /**
    * DESCRIBE [EXTENDED|FORMATTED] [db_name.]table_name[.col_name ( [.field_name] | [.'$elem$'] |
    * [.'$key$'] | [.'$value$'] )* ];
    */
   private static final String DESCRIBE_TABLE_REGEX = "^DESCRIBE\\s+"
-      + "((EXTENDED|FORMATTED)\\s+)?" + "([A-Za-z0-9._]+)";
+      + "((EXTENDED|FORMATTED)\\s+)?" + "([A-Za-z0-9._`]+)";
 
   /**
    * SHOW [FORMATTED] (INDEX|INDEXES) ON table_with_index [(FROM|IN) db_name];
    */
   private static final String SHOW_INDEX_REGEX = "^SHOW\\s+" + "(FORMATTED\\s+)?"
-      + "(INDEX|INDEXES)\\s+" + "ON\\s+" + "([A-Za-z0-9._]+)\\s*"
-      + "((FROM|IN)\\s+([A-Za-z0-9_]+))?";
+      + "(INDEX|INDEXES)\\s+" + "ON\\s+" + "([A-Za-z0-9._`]+)\\s*"
+      + "((FROM|IN)\\s+`?([A-Za-z0-9_]+)`?)?";
 
   /**
    * SHOW TBLPROPERTIES tblname;
    */
   private static final String SHOW_TBLPROPERTIES_REGEX = "^SHOW\\s+" + "TBLPROPERTIES\\s+"
-      + "([A-Za-z0-9._]+)";
+      + "([A-Za-z0-9._`]+)";
 
   /**
    * ALTER TABLE table_name ...
    */
-  private static final String ALTER_TABLE_REGEX = "^ALTER\\s+" + "TABLE\\s+" + "([A-Za-z0-9._]+)";
+  private static final String ALTER_TABLE_REGEX = "^ALTER\\s+" + "TABLE\\s+" + "([A-Za-z0-9._`]+)";
 
   /**
    * ALTER VIEW view_name ...
    */
-  private static final String ALTER_VIEW_REGEX = "^ALTER\\s+" + "VIEW\\s+" + "([A-Za-z0-9._]+)";
+  private static final String ALTER_VIEW_REGEX = "^ALTER\\s+" + "VIEW\\s+" + "([A-Za-z0-9._`]+)";
 
   /**
    * MSCK REPAIR TABLE table_name;
    */
   private static final String MSCK_REGEX = "^MSCK\\s+" + "REPAIR\\s" + "TABLE\\s"
-      + "([A-Za-z0-9._]+)";
+      + "([A-Za-z0-9._`]+)";
 
   /**
    * ALTER INDEX index_name ON table_name [PARTITION partition_spec] REBUILD;
    */
   private static final String ALTER_INDEX_REGEX = "^ALTER\\s+" + "INDEX\\s+"
-      + "([A-Za-z0-9_]+)\\s+" + "ON\\s" + "([A-Za-z0-9._]+)";
+      + "`?([A-Za-z0-9_]+)`?\\s+" + "ON\\s" + "([A-Za-z0-9._`]+)";
 
   /**
    * CREATE FUNCTION [db_name.]function_name AS class_name [USING JAR|FILE|ARCHIVE 'file_uri' [,
    * JAR|FILE|ARCHIVE 'file_uri'] ];
    */
   private static final String CREATE_FUNCTION_REGEX = "^CREATE\\s+" + "(TEMPORARY\\s+)?"
-      + "FUNCTION\\s+" + "([A-Za-z0-9._]+)\\s+" + "AS\\s" + "([A-Za-z0-9._']+)";
+      + "FUNCTION\\s+" + "([A-Za-z0-9._`]+)\\s+" + "AS\\s" + "([A-Za-z0-9._']+)";
 
   /**
    * SHOW COLUMNS FROM table_name
    */
   private static final String SHOWCOLUMNS = "^SHOW\\s+" + "COLUMNS\\s+" + "(FROM|IN)\\s+"
-      + "([A-Za-z0-9._]+)";
+      + "([A-Za-z0-9._`]+)";
 
   private static final String SHOW_TABLESTATUS = "^SHOW\\s+" + "TABLE\\s+" + "EXTENDED\\s+" + "IN\\s+"
-      + "([A-Za-z0-9._]+)";
+      + "([A-Za-z0-9_`]+)" + "\\s+" + "LIKE\\s+" + "([A-Za-z0-9_`']+)";
 
   private static final String LOAD = "^LOAD\\s+" + "DATA\\s+" + "(LOCAL\\s+)?" + "INPATH\\s+"
-      + "([A-Za-z0-9._':///-]+)" +"\\s" + "INTO\\s" + "TABLE\\s" + "([A-Za-z0-9._]+)";
+      + "([A-Za-z0-9._':///-]+)" +"\\s" + "INTO\\s" + "TABLE\\s" + "([A-Za-z0-9._`]+)";
 
   /**
    * LOCK DATABASE dbname;
    */
-  private static final String LOCKDB = "^LOCK\\s+" + "DATABASE\\s+" + "([A-Za-z0-9._]+)";
+  private static final String LOCKDB = "^LOCK\\s+" + "DATABASE\\s+" + "([A-Za-z0-9._`]+)";
 
   /**
    * UNLOCK DATABASE dbname;
    */
-  private static final String UNLOCKDB = "^UNLOCK\\s+" + "DATABASE\\s+" + "([A-Za-z0-9._]+)";
+  private static final String UNLOCKDB = "^UNLOCK\\s+" + "DATABASE\\s+" + "([A-Za-z0-9._`]+)";
 
   /**
    * LOCK TABLE tblname;
    */
-  private static final String LOCKTABLE = "^LOCK\\s+" + "TABLE\\s+" + "([A-Za-z0-9._]+)";
+  private static final String LOCKTABLE = "^LOCK\\s+" + "TABLE\\s+" + "([A-Za-z0-9._`]+)";
 
   /**
    * UNLOCK TABLE tblname;
    */
-  private static final String UNLOCKTABLE = "^UNLOCK\\s+" + "TABLE\\s+" + "([A-Za-z0-9._]+)";
+  private static final String UNLOCKTABLE = "^UNLOCK\\s+" + "TABLE\\s+" + "([A-Za-z0-9._`]+)";
 
   /**
    * TRUNCATE TABLE tblname;
    */
-  private static final String TRUNCATETABLE = "^TRUNCATE\\s+" + "TABLE\\s+" + "([A-Za-z0-9._]+)";
+  private static final String TRUNCATETABLE = "^TRUNCATE\\s+" + "TABLE\\s+" + "([A-Za-z0-9._`]+)";
 
   private static Map<HiveOperation, String> OP_REGEX_MAP = new HashMap<HiveOperation, String>();
   static {
@@ -199,8 +199,12 @@ public class SimpleSemanticAnalyzer {
   }
 
   public SimpleSemanticAnalyzer(HiveOperation hiveOp, String cmd) throws HiveAuthzPluginException {
-    currentDb = SessionState.get().getCurrentDatabase();
+    currentDb = getDbFromSessionState();
     parse(hiveOp, cmd);
+  }
+
+  String getDbFromSessionState() {
+    return SessionState.get().getCurrentDatabase();
   }
 
   private void parse(HiveOperation hiveOp, String cmd) throws HiveAuthzPluginException {
@@ -283,13 +287,14 @@ public class SimpleSemanticAnalyzer {
     }
   }
 
-  private void parseTableExtend(String cmd, String showTablestatus) throws HiveAuthzPluginException {
-    Pattern pattern = Pattern.compile(showTablestatus, Pattern.CASE_INSENSITIVE);
+  private void parseTableExtend(String cmd, String showTableStatus) throws HiveAuthzPluginException {
+    Pattern pattern = Pattern.compile(showTableStatus, Pattern.CASE_INSENSITIVE);
     Matcher matcher = pattern.matcher(cmd);
     if (matcher.find()) {
-      String dbName = matcher.group(matcher.groupCount());
-      currentDb = dbName;
-      currentTb = Table.SOME.getName();
+      String dbName = matcher.group(1);
+      String tbName = matcher.group(2);
+      currentDb = getUnquotedIdentifier(dbName);
+      currentTb = getUnquotedIdentifier(tbName);
     } else {
       throw new HiveAuthzPluginException("this command " + cmd + " is not match table meta grammar");
     }
@@ -298,19 +303,23 @@ public class SimpleSemanticAnalyzer {
   private void extractDbAndTb(String tableName) {
     if (tableName.contains(".")) {
       String[] tb = tableName.split("\\.");
-      currentDb = tb[0];
-      currentTb = tb[1];
+      currentDb = getUnquotedIdentifier(tb[0]);
+      currentTb = getUnquotedIdentifier(tb[1]);
     } else {
-      currentDb = SessionState.get().getCurrentDatabase();
-      currentTb = tableName;
+      currentDb = getUnquotedIdentifier(getDbFromSessionState());
+      currentTb = getUnquotedIdentifier(tableName);
     }
+  }
+
+  private static String getUnquotedIdentifier(String identifier) {
+    return identifier.replaceAll("`", "");
   }
 
   private void parseDbMeta(String cmd, String regex) throws HiveAuthzPluginException {
     Pattern pattern = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
     Matcher matcher = pattern.matcher(cmd);
     if (matcher.find()) {
-      currentDb = matcher.group(matcher.groupCount());
+      currentDb = getUnquotedIdentifier(matcher.group(matcher.groupCount()));
     } else {
       throw new HiveAuthzPluginException("this command " + cmd
           + " is not match database meta grammar");
@@ -335,8 +344,8 @@ public class SimpleSemanticAnalyzer {
       String dbName = matcher.group(matcher.groupCount());
       String tbName = matcher.group(3);
       if (dbName != null) {
-        currentDb = dbName;
-        currentTb = tbName;
+        currentDb = getUnquotedIdentifier(dbName);
+        currentTb = getUnquotedIdentifier(tbName);
       } else {
         extractDbAndTb(tbName);
       }
@@ -351,9 +360,9 @@ public class SimpleSemanticAnalyzer {
     if (matcher.find()) {
       String udfClass = matcher.group(matcher.groupCount());
       if (udfClass.contains("'")) {
-        currentTb = udfClass.split("'")[1];
+        currentTb = getUnquotedIdentifier(udfClass.split("'")[1]);
       } else {
-        currentTb = udfClass;
+        currentTb = getUnquotedIdentifier(udfClass);
       }
     } else {
       throw new HiveAuthzPluginException("this command " + cmd
