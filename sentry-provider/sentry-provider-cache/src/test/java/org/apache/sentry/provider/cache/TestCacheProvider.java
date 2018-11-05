@@ -37,11 +37,17 @@ public class TestCacheProvider {
   private ProviderBackendContext context;
   private PrivilegeCacheTestImpl testCache;
 
+  private static final Configuration conf = new Configuration();
+  static {
+    conf.set("fs.default.name", "file:///");
+  }
+
+
   @Before
   public void setup() throws IOException {
-    backend = new SimpleCacheProviderBackend(new Configuration(), "");
+    backend = new SimpleCacheProviderBackend(conf, "");
     context = new ProviderBackendContext();
-    testCache = new PrivilegeCacheTestImpl();
+    testCache = new PrivilegeCacheTestImpl(conf);
     context.setBindingHandle(testCache);
   }
 

@@ -7,6 +7,7 @@ import java.util.Locale;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
+import org.apache.sentry.maprminicluster.MapRMiniDFSCluster;
 
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
@@ -30,10 +31,10 @@ import org.apache.hadoop.hdfs.MiniDFSCluster;
  * Copied from Apache Solr since the solr-core test jar currently isn't
  * published
  */
-public class HdfsTestUtil {
+public class MapRFsTestUtil {
   private static Locale savedLocale;
 
-  public static MiniDFSCluster setupClass(String dataDir) throws Exception {
+  public static MapRMiniDFSCluster setupClass(String dataDir) throws Exception {
     File dir = new File(dataDir);
     new File(dataDir).mkdirs();
 
@@ -41,9 +42,8 @@ public class HdfsTestUtil {
     // TODO: we HACK around HADOOP-9643
     Locale.setDefault(Locale.ENGLISH);
 
-    int dataNodes = 2;
-
     Configuration conf = new Configuration();
+    conf.set("fs.default.name", "file:///");
     conf.set("dfs.block.access.token.enable", "false");
     conf.set("dfs.permissions.enabled", "false");
     conf.set("hadoop.security.authentication", "simple");
@@ -54,12 +54,10 @@ public class HdfsTestUtil {
     System.setProperty("test.cache.data", dir.getAbsolutePath() + File.separator + "hdfs" + File.separator + "cache");
     System.setProperty("solr.lock.type", "hdfs");
 
-    MiniDFSCluster dfsCluster = new MiniDFSCluster(conf, dataNodes, true, null);
-
-    return dfsCluster;
+    return new MapRMiniDFSCluster(conf);
   }
 
-  public static void teardownClass(MiniDFSCluster dfsCluster) throws Exception {
+  public static void teardownClass(MapRMiniDFSCluster dfsCluster) throws Exception {
     System.clearProperty("solr.lock.type");
     System.clearProperty("test.build.data");
     System.clearProperty("test.cache.data");

@@ -19,6 +19,7 @@ package org.apache.sentry.policy.search;
 import java.io.File;
 import java.io.IOException;
 
+import org.apache.hadoop.conf.Configuration;
 import org.junit.Assert;
 
 import org.apache.commons.io.FileUtils;
@@ -32,7 +33,7 @@ public class TestSearchPolicyEngineLocalFS extends AbstractTestSearchPolicyEngin
     Assert.assertNotNull(baseDir);
     Assert.assertTrue(baseDir.isDirectory() || baseDir.mkdirs());
     PolicyFiles.copyToDir(baseDir, "test-authz-provider.ini");
-    setPolicy(new SearchPolicyFileBackend(new File(baseDir, "test-authz-provider.ini").getPath()));
+    setPolicy(new SearchPolicyFileBackend(new File(baseDir, "test-authz-provider.ini").getPath(), conf));
   }
   @Override
   protected void beforeTeardown() throws IOException {

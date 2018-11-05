@@ -20,6 +20,7 @@ package org.apache.sentry.policy.sqoop;
 
 import java.io.IOException;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.sentry.provider.file.SimpleFileProviderBackend;
 import org.slf4j.Logger;
@@ -32,4 +33,12 @@ public class SqoopPolicyFileProviderBackend extends SimpleSqoopPolicyEngine {
     super(sqoopServerName, new SimpleFileProviderBackend(new Configuration(), resource));
     LOGGER.warn("The DB providerbackend is the preferred option over file providerbackend as the sqoop policy engine");
   }
+
+  @VisibleForTesting
+  public SqoopPolicyFileProviderBackend(String sqoopServerName,
+      String resource, Configuration conf) throws IOException {
+    super(sqoopServerName, new SimpleFileProviderBackend(conf, resource));
+    LOGGER.warn("The DB providerbackend is the preferred option over file providerbackend as the sqoop policy engine");
+  }
+
 }

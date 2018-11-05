@@ -27,6 +27,7 @@ import org.apache.sentry.core.model.db.AccessConstants;
 import org.apache.sentry.core.model.db.Database;
 import org.apache.sentry.core.model.db.Server;
 import org.apache.sentry.core.model.db.Table;
+import org.apache.sentry.provider.db.tools.TestUtils;
 import org.apache.sentry.service.thrift.SentryServiceIntegrationBase;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -38,6 +39,7 @@ public class TestSentryServerForHaWithoutKerberos extends SentryServiceIntegrati
 
   @BeforeClass
   public static void setup() throws Exception {
+    System.setProperty("java.security.auth.login.config", TestUtils.getFileFromClasspath("mapr.login.conf"));
     kerberos = false;
     haEnabled = true;
     beforeSetup();

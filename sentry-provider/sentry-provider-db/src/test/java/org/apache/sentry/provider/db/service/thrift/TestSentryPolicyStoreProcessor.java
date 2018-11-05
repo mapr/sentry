@@ -33,6 +33,7 @@ public class TestSentryPolicyStoreProcessor {
   @Before
   public void setup() {
     conf = new Configuration(false);
+    conf.set("fs.default.name", "file:///");
   }
   @Test(expected=SentryConfigurationException.class)
   public void testConfigNotNotificationHandler() throws Exception {

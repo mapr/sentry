@@ -20,6 +20,7 @@ package org.apache.sentry.policy.kafka;
 
 import java.io.IOException;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.sentry.provider.file.SimpleFileProviderBackend;
 import org.slf4j.Logger;
@@ -31,4 +32,11 @@ public class KafkaPolicyFileProviderBackend extends SimpleKafkaPolicyEngine {
     super(new SimpleFileProviderBackend(new Configuration(), resource));
     LOGGER.warn("The DB provider backend is the preferred option over file provider backend as the kafka policy engine");
   }
+
+  @VisibleForTesting
+  public KafkaPolicyFileProviderBackend(Configuration conf, String resource) throws IOException {
+    super(new SimpleFileProviderBackend(conf, resource));
+    LOGGER.warn("The DB provider backend is the preferred option over file provider backend as the kafka policy engine");
+  }
+
 }

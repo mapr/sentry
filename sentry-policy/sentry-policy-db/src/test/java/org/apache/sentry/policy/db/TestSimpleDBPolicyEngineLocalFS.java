@@ -19,12 +19,18 @@ package org.apache.sentry.policy.db;
 import java.io.File;
 import java.io.IOException;
 
+import org.apache.hadoop.conf.Configuration;
 import org.junit.Assert;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.sentry.provider.file.PolicyFiles;
 
 public class TestSimpleDBPolicyEngineLocalFS extends AbstractTestSimplePolicyEngine {
+
+  private static final Configuration conf = new Configuration();
+  static {
+    conf.set("fs.default.name", "file:///");
+  }
 
   @Override
   protected void  afterSetup() throws IOException {
@@ -33,7 +39,7 @@ public class TestSimpleDBPolicyEngineLocalFS extends AbstractTestSimplePolicyEng
     Assert.assertTrue(baseDir.isDirectory() || baseDir.mkdirs());
     PolicyFiles.copyToDir(baseDir, "test-authz-provider.ini", "test-authz-provider-other-group.ini");
     setPolicy(new DBPolicyFileBackend("server1",
-        new File(baseDir, "test-authz-provider.ini").getPath()));
+        new File(baseDir, "test-authz-provider.ini").getPath(), conf));
   }
   @Override
   protected void beforeTeardown() throws IOException {

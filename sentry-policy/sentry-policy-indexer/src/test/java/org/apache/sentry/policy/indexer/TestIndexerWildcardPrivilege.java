@@ -21,6 +21,7 @@ import static org.apache.sentry.policy.common.PolicyConstants.AUTHORIZABLE_JOINE
 import static org.apache.sentry.policy.common.PolicyConstants.KV_JOINER;
 import static org.apache.sentry.policy.common.PolicyConstants.KV_SEPARATOR;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.sentry.core.model.indexer.IndexerConstants;
 import org.apache.sentry.policy.common.Privilege;
 import org.apache.sentry.policy.common.KeyValue;

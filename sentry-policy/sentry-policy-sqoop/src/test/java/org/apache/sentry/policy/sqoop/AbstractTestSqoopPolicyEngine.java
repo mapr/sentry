@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.util.Set;
 import java.util.TreeSet;
 
+import org.apache.hadoop.conf.Configuration;
 import org.junit.Assert;
 
 import org.apache.commons.io.FileUtils;
@@ -52,6 +53,12 @@ public abstract class AbstractTestSqoopPolicyEngine {
 
   private PolicyEngine policy;
   private static File baseDir;
+
+  protected static final Configuration conf = new Configuration();
+  static {
+    conf.set("fs.default.name", "file:///");
+  }
+
 
   protected String sqoopServerName = "server1";
 

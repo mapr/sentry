@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Set;
 
+import org.apache.sentry.maprminicluster.MapRMiniDFSCluster;
 import org.junit.Assert;
 
 import org.apache.hadoop.conf.Configuration;
@@ -39,10 +40,15 @@ import com.google.common.io.Files;
 
 public class TestSimpleDBPolicyEngineDFS extends AbstractTestSimplePolicyEngine {
 
-  private static MiniDFSCluster dfsCluster;
+  private static MapRMiniDFSCluster dfsCluster;
   private static FileSystem fileSystem;
-  private static Path root;
   private static Path etc;
+
+  private static final Configuration conf = new Configuration();
+  static {
+    conf.set("fs.default.name", "file:///");
+  }
+
 
   @BeforeClass
   public static void setupLocalClazz() throws IOException {
@@ -50,12 +56,9 @@ public class TestSimpleDBPolicyEngineDFS extends AbstractTestSimplePolicyEngine 
     Assert.assertNotNull(baseDir);
     File dfsDir = new File(baseDir, "dfs");
     Assert.assertTrue(dfsDir.isDirectory() || dfsDir.mkdirs());
-    Configuration conf = new Configuration();
-    conf.set(MiniDFSCluster.HDFS_MINIDFS_BASEDIR, dfsDir.getPath());
-    dfsCluster = new MiniDFSCluster.Builder(conf).numDataNodes(2).build();
+    dfsCluster = new MapRMiniDFSCluster(conf);
     fileSystem = dfsCluster.getFileSystem();
-    root = new Path(fileSystem.getUri().toString());
-    etc = new Path(root, "/etc");
+    etc = new Path(fileSystem.getWorkingDirectory(),"etc");
     fileSystem.mkdirs(etc);
   }
   @AfterClass
@@ -71,7 +74,7 @@ public class TestSimpleDBPolicyEngineDFS extends AbstractTestSimplePolicyEngine 
     fileSystem.mkdirs(etc);
     PolicyFiles.copyToDir(fileSystem, etc, "test-authz-provider.ini", "test-authz-provider-other-group.ini");
     setPolicy(new DBPolicyFileBackend("server1",
-        new Path(etc, "test-authz-provider.ini").toString()));
+        new Path(etc, "test-authz-provider.ini").toString(), conf));
   }
   @Override
   protected void beforeTeardown() throws IOException {
@@ -103,7 +106,7 @@ public class TestSimpleDBPolicyEngineDFS extends AbstractTestSimplePolicyEngine 
     PolicyFiles.copyFilesToDir(fileSystem, etc, globalPolicyFile);
     PolicyFiles.copyFilesToDir(fileSystem, etc, dbPolicyFile);
     DBPolicyFileBackend multiFSEngine =
-        new DBPolicyFileBackend("server1", globalPolicyFile.getPath());
+        new DBPolicyFileBackend("server1", globalPolicyFile.getPath(), conf);
 
     Set<String> dbGroups = Sets.newHashSet();
     dbGroups.add("group1");

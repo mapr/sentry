@@ -19,6 +19,7 @@ package org.apache.sentry.policy.db;
 import java.io.File;
 import java.io.IOException;
 
+import org.apache.hadoop.conf.Configuration;
 import org.junit.Assert;
 
 import org.apache.commons.io.FileUtils;
@@ -46,6 +47,12 @@ public class TestPolicyParsingNegative {
   private File globalPolicyFile;
   private File otherPolicyFile;
 
+  private static final Configuration conf = new Configuration();
+  static {
+    conf.set("fs.default.name", "file:///");
+  }
+
+
   @Before
   public void setup() {
     baseDir = Files.createTempDir();
@@ -72,7 +79,7 @@ public class TestPolicyParsingNegative {
     append("other_group = malicious_role", otherPolicyFile);
     append("[roles]", otherPolicyFile);
     append("malicious_role = server=server1->db=customers->table=purchases->action=select", otherPolicyFile);
-    PolicyEngine policy = new DBPolicyFileBackend("server1", globalPolicyFile.getPath());
+    PolicyEngine policy = new DBPolicyFileBackend("server1", globalPolicyFile.getPath(), conf);
     ImmutableSet<String> permissions = policy.getAllPrivileges(Sets.newHashSet("other_group"), ActiveRoleSet.ALL);
     Assert.assertTrue(permissions.toString(), permissions.isEmpty());
   }
@@ -86,21 +93,21 @@ public class TestPolicyParsingNegative {
     policyFile.addGroupsToUser("admin1", "admin");
     policyFile.write(globalPolicyFile);
     policyFile.write(otherPolicyFile);
-    policy = new DBPolicyFileBackend("server1", globalPolicyFile.getPath());
+    policy = new DBPolicyFileBackend("server1", globalPolicyFile.getPath(), conf);
     permissions = policy.getAllPrivileges(Sets.newHashSet("admin"), ActiveRoleSet.ALL);
     Assert.assertEquals(permissions.toString(), "[server=server1]");
     // test to ensure [users] fails parsing of per-db file
     policyFile.addDatabase("other", otherPolicyFile.getPath());
     policyFile.write(globalPolicyFile);
     policyFile.write(otherPolicyFile);
-    policy = new DBPolicyFileBackend("server1", globalPolicyFile.getPath());
+    policy = new DBPolicyFileBackend("server1", globalPolicyFile.getPath(), conf);
     permissions = policy.getAllPrivileges(Sets.newHashSet("admin"), ActiveRoleSet.ALL);
     Assert.assertEquals(permissions.toString(), "[server=server1]");
     // test to ensure [databases] fails parsing of per-db file
     // by removing the user mapping from the per-db policy file
     policyFile.removeGroupsFromUser("admin1", "admin")
       .write(otherPolicyFile);
-    policy = new DBPolicyFileBackend("server1", globalPolicyFile.getPath());
+    policy = new DBPolicyFileBackend("server1", globalPolicyFile.getPath(), conf);
     permissions = policy.getAllPrivileges(Sets.newHashSet("admin"), ActiveRoleSet.ALL);
     Assert.assertEquals(permissions.toString(), "[server=server1]");
   }
@@ -113,7 +120,7 @@ public class TestPolicyParsingNegative {
     append("other_group = malicious_role", otherPolicyFile);
     append("[roles]", otherPolicyFile);
     append("malicious_role = server=server1", otherPolicyFile);
-    PolicyEngine policy = new DBPolicyFileBackend("server1", globalPolicyFile.getPath());
+    PolicyEngine policy = new DBPolicyFileBackend("server1", globalPolicyFile.getPath(), conf);
     ImmutableSet<String> permissions = policy.getAllPrivileges(Sets.newHashSet("other_group"), ActiveRoleSet.ALL);
     Assert.assertTrue(permissions.toString(), permissions.isEmpty());
   }
@@ -124,7 +131,7 @@ public class TestPolicyParsingNegative {
     append("group = malicious_role", globalPolicyFile);
     append("[roles]", globalPolicyFile);
     append("malicious_role = server=*", globalPolicyFile);
-    PolicyEngine policy = new DBPolicyFileBackend("server1", globalPolicyFile.getPath());
+    PolicyEngine policy = new DBPolicyFileBackend("server1", globalPolicyFile.getPath(), conf);
     ImmutableSet<String> permissions = policy.getAllPrivileges(Sets.newHashSet("group"), ActiveRoleSet.ALL);
     Assert.assertTrue(permissions.toString(), permissions.isEmpty());
   }
@@ -135,7 +142,7 @@ public class TestPolicyParsingNegative {
     append("group = malicious_role", globalPolicyFile);
     append("[roles]", globalPolicyFile);
     append("malicious_role = server=server2", globalPolicyFile);
-    PolicyEngine policy = new DBPolicyFileBackend("server1", globalPolicyFile.getPath());
+    PolicyEngine policy = new DBPolicyFileBackend("server1", globalPolicyFile.getPath(), conf);
     ImmutableSet<String> permissions = policy.getAllPrivileges(Sets.newHashSet("group"), ActiveRoleSet.ALL);
     Assert.assertTrue(permissions.toString(), permissions.isEmpty());
   }
@@ -146,7 +153,7 @@ public class TestPolicyParsingNegative {
     append("group = malicious_role", globalPolicyFile);
     append("[roles]", globalPolicyFile);
     append("malicious_role = *", globalPolicyFile);
-    PolicyEngine policy = new DBPolicyFileBackend("server1", globalPolicyFile.getPath());
+    PolicyEngine policy = new DBPolicyFileBackend("server1", globalPolicyFile.getPath(), conf);
     ImmutableSet<String> permissions = policy.getAllPrivileges(Sets.newHashSet("group"), ActiveRoleSet.ALL);
     Assert.assertTrue(permissions.toString(), permissions.isEmpty());
   }
@@ -182,7 +189,7 @@ public class TestPolicyParsingNegative {
     append("[roles]", db2PolicyFile);
     append("db2_rule = server=server1->db=db2->table=purchases->action=select", db2PolicyFile);
 
-    PolicyEngine policy = new DBPolicyFileBackend("server1", globalPolicyFile.getPath());
+    PolicyEngine policy = new DBPolicyFileBackend("server1", globalPolicyFile.getPath(), conf);
 
     // verify that the db1 rule is empty
     ImmutableSet<String> permissions = policy.getAllPrivileges(Sets.newHashSet("db1_group"), ActiveRoleSet.ALL);

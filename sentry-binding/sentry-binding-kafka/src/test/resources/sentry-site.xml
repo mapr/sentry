@@ -38,5 +38,9 @@
     <name>sentry.kafka.provider.backend</name>
     <value>org.apache.sentry.provider.file.SimpleFileProviderBackend</value>
   </property>
+  <property>
+    <name>fs.default.name</name>
+    <value>file:///</value>
+  </property>
 </configuration>
 

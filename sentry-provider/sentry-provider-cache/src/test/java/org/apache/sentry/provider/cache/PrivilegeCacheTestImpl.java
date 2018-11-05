@@ -40,10 +40,10 @@ public class PrivilegeCacheTestImpl implements PrivilegeCache {
   private SimpleFileProviderBackend backend;
   private File baseDir;
 
-  public PrivilegeCacheTestImpl() throws FileNotFoundException, IOException {
+  public PrivilegeCacheTestImpl(Configuration conf) throws FileNotFoundException, IOException {
     baseDir = Files.createTempDir();
     PolicyFiles.copyToDir(baseDir, resourcePath);
-    backend = new SimpleFileProviderBackend(new Configuration(), new File(baseDir, resourcePath)
+    backend = new SimpleFileProviderBackend(conf, new File(baseDir, resourcePath)
       .toString());
     backend.initialize(new ProviderBackendContext());
   }

@@ -18,6 +18,7 @@ package org.apache.sentry.policy.indexer;
 
 import java.io.IOException;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.sentry.provider.file.SimpleFileProviderBackend;
 
@@ -25,4 +26,10 @@ public class IndexerPolicyFileBackend extends SimpleIndexerPolicyEngine {
   public IndexerPolicyFileBackend(String resource) throws IOException{
     super(new SimpleFileProviderBackend(new Configuration(), resource));
   }
+
+  @VisibleForTesting
+  public IndexerPolicyFileBackend(String resource, Configuration conf) throws IOException{
+    super(new SimpleFileProviderBackend(conf, resource));
+  }
+
 }

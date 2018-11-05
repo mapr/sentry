@@ -58,6 +58,7 @@ public class SentryKafkaAuthorizerTest {
     // Kafka check this prop when creating a config instance
     props.put("zookeeper.connect", "test");
     props.put("sentry.kafka.site.url", "file://" + sentry_site_path);
+    props.put("fs.default.name", "file:///");
 
     config = KafkaConfig.fromProps(props);
     authorizer.configure(config.originals());

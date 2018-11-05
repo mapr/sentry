@@ -47,7 +47,9 @@ public class TestSimpleFileProvderBackend {
   public void setup() throws IOException {
     baseDir = Files.createTempDir();
     PolicyFiles.copyToDir(baseDir, resourcePath);
-    backend = new SimpleFileProviderBackend(new Configuration(), new File(baseDir, resourcePath)
+    Configuration conf = new Configuration();
+    conf.set("fs.default.name", "file:///");
+    backend = new SimpleFileProviderBackend(conf, new File(baseDir, resourcePath)
       .toString());
     context = new ProviderBackendContext();
   }

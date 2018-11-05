@@ -19,6 +19,7 @@ package org.apache.sentry.policy.indexer;
 import java.io.File;
 import java.io.IOException;
 
+import org.apache.hadoop.conf.Configuration;
 import org.junit.Assert;
 
 import org.apache.commons.io.FileUtils;
@@ -26,13 +27,18 @@ import org.apache.sentry.provider.file.PolicyFiles;
 
 public class TestIndexerPolicyEngineLocalFS extends AbstractTestIndexerPolicyEngine {
 
+  private static final Configuration conf = new Configuration();
+  static {
+    conf.set("fs.default.name", "file:///");
+  }
+
   @Override
   protected void  afterSetup() throws IOException {
     File baseDir = getBaseDir();
     Assert.assertNotNull(baseDir);
     Assert.assertTrue(baseDir.isDirectory() || baseDir.mkdirs());
     PolicyFiles.copyToDir(baseDir, "test-authz-provider.ini");
-    setPolicy(new IndexerPolicyFileBackend(new File(baseDir, "test-authz-provider.ini").getPath()));
+    setPolicy(new IndexerPolicyFileBackend(new File(baseDir, "test-authz-provider.ini").getPath(), conf));
   }
   @Override
   protected void beforeTeardown() throws IOException {

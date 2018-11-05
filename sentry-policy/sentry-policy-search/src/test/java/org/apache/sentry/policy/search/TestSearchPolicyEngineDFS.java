@@ -19,6 +19,7 @@ package org.apache.sentry.policy.search;
 import java.io.File;
 import java.io.IOException;
 
+import org.apache.sentry.maprminicluster.MapRMiniDFSCluster;
 import org.junit.Assert;
 
 import org.apache.hadoop.conf.Configuration;
@@ -31,10 +32,14 @@ import org.junit.BeforeClass;
 
 public class TestSearchPolicyEngineDFS extends AbstractTestSearchPolicyEngine {
 
-  private static MiniDFSCluster dfsCluster;
+  private static MapRMiniDFSCluster dfsCluster;
   private static FileSystem fileSystem;
-  private static Path root;
   private static Path etc;
+
+  private static final Configuration conf = new Configuration();
+  static {
+    conf.set("fs.default.name", "file:///");
+  }
 
   @BeforeClass
   public static void setupLocalClazz() throws IOException {
@@ -42,12 +47,9 @@ public class TestSearchPolicyEngineDFS extends AbstractTestSearchPolicyEngine {
     Assert.assertNotNull(baseDir);
     File dfsDir = new File(baseDir, "dfs");
     Assert.assertTrue(dfsDir.isDirectory() || dfsDir.mkdirs());
-    Configuration conf = new Configuration();
-    conf.set(MiniDFSCluster.HDFS_MINIDFS_BASEDIR, dfsDir.getPath());
-    dfsCluster = new MiniDFSCluster.Builder(conf).numDataNodes(2).build();
+    dfsCluster = new MapRMiniDFSCluster(conf);
     fileSystem = dfsCluster.getFileSystem();
-    root = new Path(fileSystem.getUri().toString());
-    etc = new Path(root, "/etc");
+    etc = new Path(fileSystem.getWorkingDirectory(), "etc");
     fileSystem.mkdirs(etc);
   }
 
@@ -64,7 +66,7 @@ public class TestSearchPolicyEngineDFS extends AbstractTestSearchPolicyEngine {
     fileSystem.mkdirs(etc);
     PolicyFiles.copyToDir(fileSystem, etc, "test-authz-provider.ini");
     setPolicy(new SearchPolicyFileBackend(new Path(etc,
-        "test-authz-provider.ini").toString()));
+        "test-authz-provider.ini").toString(), conf));
   }
 
   @Override

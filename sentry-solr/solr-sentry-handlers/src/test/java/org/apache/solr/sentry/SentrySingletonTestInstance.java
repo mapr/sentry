@@ -64,6 +64,7 @@ public class SentrySingletonTestInstance {
       "org.apache.sentry.provider.file.LocalGroupResourceAuthorizationProvider");
     addPropertyToSentry(sentrySiteData, "sentry.solr.provider.resource",
        new File(authProviderDir.toString(), "test-authz-provider.ini").toURI().toURL().toString());
+    addPropertyToSentry(sentrySiteData, "fs.default.name", "file:///");
     sentrySiteData.append("</configuration>\n");
     FileUtils.writeStringToFile(sentrySite,sentrySiteData.toString(), Charsets.UTF_8.toString());
   }

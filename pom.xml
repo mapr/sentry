@@ -92,6 +92,7 @@ limitations under the License.
     <solr.version>4.10.2</solr.version>
     <sqoop.version>1.99.6-mapr-1507</sqoop.version>
     <test.sentry.hadoop.classpath>${maven.test.classpath}</test.sentry.hadoop.classpath>
+    <test.tmp.dir>${project.build.directory}/tmp</test.tmp.dir>
     <zookeeper.version>3.4.5</zookeeper.version>
     <kafka.version>0.9.0.0</kafka.version>
     <commons-io.version>1.3.2</commons-io.version>
@@ -614,6 +615,7 @@ limitations under the License.
     <module>sentry-policy</module>
     <module>sentry-solr</module>
     <module>sentry-dist</module>
+      <module>mapr-mini-cluster</module>
   </modules>
 
   <build>
@@ -671,6 +673,8 @@ limitations under the License.
               <exportAntProperties>true</exportAntProperties>
               <target>
                 <property name="maven.test.classpath" refid="maven.test.classpath"/>
+                <delete dir="${test.tmp.dir}" />
+                <mkdir dir="${test.tmp.dir}" />
               </target>
             </configuration>
           </execution>
@@ -765,6 +769,7 @@ limitations under the License.
             <argLine>-Xms512m -Xmx2g -XX:MaxPermSize=256m</argLine>
             <systemPropertyVariables>
               <java.net.preferIPv4Stack>true</java.net.preferIPv4Stack>
+              <test.tmp.dir>${test.tmp.dir}</test.tmp.dir>
             </systemPropertyVariables>
           </configuration>
         </plugin>
@@ -822,6 +827,8 @@ limitations under the License.
                   <!-- Exclude SSL .crtand .jks files -->
                   <exclude>**/*.crt</exclude>
                   <exclude>**/*.jks</exclude>
+                  <!-- Exclude mapr.login.conf -->
+                  <exclude>**/mapr.login.conf</exclude>
                 </excludes>
               </configuration>
             </execution>

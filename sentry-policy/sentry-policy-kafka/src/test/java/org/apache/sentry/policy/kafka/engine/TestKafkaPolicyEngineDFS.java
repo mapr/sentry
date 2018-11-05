@@ -27,16 +27,22 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
+import org.apache.sentry.maprminicluster.MapRMiniDFSCluster;
 import org.apache.sentry.policy.kafka.KafkaPolicyFileProviderBackend;
 import org.apache.sentry.provider.file.PolicyFiles;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 
 public class TestKafkaPolicyEngineDFS extends AbstractTestKafkaPolicyEngine {
-  private static MiniDFSCluster dfsCluster;
+  private static MapRMiniDFSCluster dfsCluster;
   private static FileSystem fileSystem;
-  private static Path root;
   private static Path etc;
+
+  private static final Configuration conf = new Configuration();
+  static {
+    conf.set("fs.default.name", "file:///");
+  }
+
 
   @BeforeClass
   public static void setupLocalClazz() throws IOException {
@@ -44,12 +50,9 @@ public class TestKafkaPolicyEngineDFS extends AbstractTestKafkaPolicyEngine {
     Assert.assertNotNull(baseDir);
     File dfsDir = new File(baseDir, "dfs");
     Assert.assertTrue(dfsDir.isDirectory() || dfsDir.mkdirs());
-    Configuration conf = new Configuration();
-    conf.set(MiniDFSCluster.HDFS_MINIDFS_BASEDIR, dfsDir.getPath());
-    dfsCluster = new MiniDFSCluster.Builder(conf).numDataNodes(2).build();
+    dfsCluster = new MapRMiniDFSCluster(conf);
     fileSystem = dfsCluster.getFileSystem();
-    root = new Path(fileSystem.getUri().toString());
-    etc = new Path(root, "/etc");
+    etc = new Path("etc");
     fileSystem.mkdirs(etc);
   }
 
@@ -65,7 +68,7 @@ public class TestKafkaPolicyEngineDFS extends AbstractTestKafkaPolicyEngine {
     fileSystem.delete(etc, true);
     fileSystem.mkdirs(etc);
     PolicyFiles.copyToDir(fileSystem, etc, "test-authz-provider.ini");
-    setPolicy(new KafkaPolicyFileProviderBackend(new Path(etc,
+    setPolicy(new KafkaPolicyFileProviderBackend(conf, new Path(etc,
         "test-authz-provider.ini").toString()));
   }
 

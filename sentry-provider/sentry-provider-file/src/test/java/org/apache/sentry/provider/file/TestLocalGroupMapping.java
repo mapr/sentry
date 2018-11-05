@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.sentry.provider.common.SentryGroupNotFoundException;
 import org.junit.After;
@@ -38,6 +39,11 @@ public class TestLocalGroupMapping {
   private static final Set<String> fooGroups = Sets.newHashSet("admin", "analyst");
   private static final Set<String> barGroups = Sets.newHashSet("jranalyst");
 
+  private static final Configuration conf = new Configuration();
+  static {
+    conf.set("fs.default.name", "file:///");
+  }
+
   private LocalGroupMappingService localGroupMapping;
 
   private File baseDir;
@@ -46,7 +52,7 @@ public class TestLocalGroupMapping {
   public void setup() throws IOException {
     baseDir = Files.createTempDir();
     PolicyFiles.copyToDir(baseDir, resourcePath);
-    localGroupMapping = new LocalGroupMappingService(new Path(new File(baseDir, resourcePath).getPath()));
+    localGroupMapping = new LocalGroupMappingService(conf, new Path(new File(baseDir, resourcePath).getPath()));
   }
 
   @After

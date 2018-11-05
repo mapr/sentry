@@ -27,6 +27,7 @@ import java.util.Set;
 import junit.framework.Assert;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.sentry.core.common.Action;
 import org.apache.sentry.core.common.ActiveRoleSet;
 import org.apache.sentry.core.common.Authorizable;
@@ -106,6 +107,12 @@ public class TestKafkaAuthorizationProviderGeneralCases {
     USER_TO_GROUP_MAP.putAll(CONSUMER_PRODUCER0.getName(),  Arrays.asList(CONSUMER_PRODUCER_GROUP0));
   }
 
+  private static final Configuration conf = new Configuration();
+  static {
+    conf.set("fs.default.name", "file:///");
+  }
+
+
   private final ResourceAuthorizationProvider authzProvider;
   private File baseDir;
 
@@ -113,7 +120,7 @@ public class TestKafkaAuthorizationProviderGeneralCases {
     baseDir = Files.createTempDir();
     PolicyFiles.copyToDir(baseDir, "test-authz-provider.ini");
     authzProvider = new HadoopGroupResourceAuthorizationProvider(
-        new KafkaPolicyFileProviderBackend(new File(baseDir, "test-authz-provider.ini").getPath()),
+        new KafkaPolicyFileProviderBackend(conf, new File(baseDir, "test-authz-provider.ini").getPath()),
         new MockGroupMappingServiceProvider(USER_TO_GROUP_MAP));
   }
 

@@ -23,6 +23,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.hadoop.conf.Configuration;
 import org.junit.Assert;
 
 import org.apache.commons.io.FileUtils;
@@ -84,6 +85,12 @@ public class TestResourceAuthorizationProviderGeneralCases {
         Arrays.asList("jranalyst"));
   }
 
+  private static final Configuration conf = new Configuration();
+  static {
+    conf.set("fs.default.name", "file:///");
+  }
+
+
   private final ResourceAuthorizationProvider authzProvider;
   private File baseDir;
 
@@ -92,7 +99,7 @@ public class TestResourceAuthorizationProviderGeneralCases {
     PolicyFiles.copyToDir(baseDir, "test-authz-provider.ini", "test-authz-provider-other-group.ini");
     authzProvider = new HadoopGroupResourceAuthorizationProvider(
         new DBPolicyFileBackend("server1",
-        new File(baseDir, "test-authz-provider.ini").getPath()),
+        new File(baseDir, "test-authz-provider.ini").getPath(), conf),
         new MockGroupMappingServiceProvider(USER_TO_GROUP_MAP));
 
   }

@@ -9,30 +9,26 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless createRequired by applicable law or agreed to in writing, software
+ * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
 
-package org.apache.sentry.provider.db.service.thrift;
+package org.apache.sentry.provider.db.tools;
 
-import org.apache.sentry.provider.db.tools.TestUtils;
-import org.junit.BeforeClass;
+import java.net.URL;
 
-public class TestSentryServerForPoolHAWithoutKerberos extends TestSentryServerForHaWithoutKerberos {
+public final class TestUtils {
+  private TestUtils() {}
 
-  @BeforeClass
-  public static void setup() throws Exception {
-    System.setProperty("java.security.auth.login.config", TestUtils.getFileFromClasspath("mapr.login.conf"));
-    kerberos = false;
-    haEnabled = true;
-    pooled = true;
-    beforeSetup();
-    setupConf();
-    startSentryService();
-    afterSetup();
+  public static String getFileFromClasspath(String name) {
+    URL url = ClassLoader.getSystemResource(name);
+    if (url == null) {
+      throw new IllegalArgumentException("Could not find " + name);
+    }
+    return url.getPath();
   }
 
 }

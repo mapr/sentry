@@ -22,6 +22,7 @@ import java.io.IOException;
 import junit.framework.Assert;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.sentry.core.common.ActiveRoleSet;
 import org.apache.sentry.policy.common.PolicyEngine;
 import org.apache.sentry.policy.kafka.KafkaPolicyFileProviderBackend;
@@ -37,6 +38,12 @@ import com.google.common.io.Files;
 public class TestKafkaPolicyNegative {
   private File baseDir;
   private File globalPolicyFile;
+
+  private static final Configuration conf = new Configuration();
+  static {
+    conf.set("fs.default.name", "file:///");
+  }
+
 
   @Before
   public void setup() {
@@ -61,7 +68,7 @@ public class TestKafkaPolicyNegative {
     append("other_group = other_role", globalPolicyFile);
     append("[roles]", globalPolicyFile);
     append("other_role = host=host1->topic=t1->action=read, host=host1->consumergroup=l1->action=read", globalPolicyFile);
-    PolicyEngine policy = new KafkaPolicyFileProviderBackend(globalPolicyFile.getPath());
+    PolicyEngine policy = new KafkaPolicyFileProviderBackend(conf, globalPolicyFile.getPath());
     //malicious_group has no privilege
     ImmutableSet<String> permissions = policy.getAllPrivileges(Sets.newHashSet("malicious_group"), ActiveRoleSet.ALL);
     Assert.assertTrue(permissions.toString(), permissions.isEmpty());
@@ -76,7 +83,7 @@ public class TestKafkaPolicyNegative {
     append("other_group = malicious_role", globalPolicyFile);
     append("[roles]", globalPolicyFile);
     append("malicious_role = topic=t1->action=read", globalPolicyFile);
-    PolicyEngine policy = new KafkaPolicyFileProviderBackend(globalPolicyFile.getPath());
+    PolicyEngine policy = new KafkaPolicyFileProviderBackend(conf, globalPolicyFile.getPath());
     ImmutableSet<String> permissions = policy.getAllPrivileges(Sets.newHashSet("other_group"), ActiveRoleSet.ALL);
     Assert.assertTrue(permissions.toString(), permissions.isEmpty());
   }
@@ -87,7 +94,7 @@ public class TestKafkaPolicyNegative {
     append("group = malicious_role", globalPolicyFile);
     append("[roles]", globalPolicyFile);
     append("malicious_role = host=*->action=read", globalPolicyFile);
-    PolicyEngine policy = new KafkaPolicyFileProviderBackend(globalPolicyFile.getPath());
+    PolicyEngine policy = new KafkaPolicyFileProviderBackend(conf, globalPolicyFile.getPath());
     ImmutableSet<String> permissions = policy.getAllPrivileges(Sets.newHashSet("group"), ActiveRoleSet.ALL);
     Assert.assertTrue(permissions.toString(), permissions.size() == 1);
   }
@@ -98,7 +105,7 @@ public class TestKafkaPolicyNegative {
     append("group = malicious_role", globalPolicyFile);
     append("[roles]", globalPolicyFile);
     append("malicious_role = *", globalPolicyFile);
-    PolicyEngine policy = new KafkaPolicyFileProviderBackend(globalPolicyFile.getPath());
+    PolicyEngine policy = new KafkaPolicyFileProviderBackend(conf, globalPolicyFile.getPath());
     ImmutableSet<String> permissions = policy.getAllPrivileges(Sets.newHashSet("group"), ActiveRoleSet.ALL);
     Assert.assertTrue(permissions.toString(), permissions.isEmpty());
   }

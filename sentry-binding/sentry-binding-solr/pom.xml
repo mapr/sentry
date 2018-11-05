@@ -69,6 +69,12 @@ limitations under the License.
       <artifactId>hadoop-minicluster</artifactId>
       <scope>test</scope>
     </dependency>
+      <dependency>
+          <groupId>org.apache.sentry</groupId>
+          <artifactId>mapr-mini-cluster</artifactId>
+          <version>1.7.0</version>
+          <scope>test</scope>
+      </dependency>
   </dependencies>
 
   <!-- build a test jar -->

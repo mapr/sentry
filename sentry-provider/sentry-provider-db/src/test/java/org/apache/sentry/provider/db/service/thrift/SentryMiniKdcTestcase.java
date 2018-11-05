@@ -44,7 +44,7 @@ public class SentryMiniKdcTestcase {
   }
 
   private static void createTestDir() {
-    workDir = new File(System.getProperty("test.dir", "target"));
+    workDir = new File(System.getProperty("test.tmp.dir", "target"));
   }
 
   public static void stopMiniKdc() {

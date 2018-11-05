@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.hadoop.conf.Configuration;
 import org.junit.Assert;
 
 import org.apache.commons.io.FileUtils;
@@ -91,6 +92,12 @@ public class TestSqoopAuthorizationProviderGeneralCases {
     USER_TO_GROUP_MAP.putAll(SUB_CONNECTOR_OPERATOR.getName(),Arrays.asList(CONNECTOR_OPERATOR));
   }
 
+  private static final Configuration conf = new Configuration();
+  static {
+    conf.set("fs.default.name", "file:///");
+  }
+
+
   private final ResourceAuthorizationProvider authzProvider;
   private File baseDir;
 
@@ -98,7 +105,7 @@ public class TestSqoopAuthorizationProviderGeneralCases {
     baseDir = Files.createTempDir();
     PolicyFiles.copyToDir(baseDir, "test-authz-provider.ini");
     authzProvider = new HadoopGroupResourceAuthorizationProvider(
-        new SqoopPolicyFileProviderBackend(server1.getName(), new File(baseDir, "test-authz-provider.ini").getPath()),
+        new SqoopPolicyFileProviderBackend(server1.getName(), new File(baseDir, "test-authz-provider.ini").getPath(), conf),
         new MockGroupMappingServiceProvider(USER_TO_GROUP_MAP));
   }
 

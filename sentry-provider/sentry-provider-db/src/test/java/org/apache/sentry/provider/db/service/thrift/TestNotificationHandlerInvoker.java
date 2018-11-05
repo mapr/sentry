@@ -38,6 +38,7 @@ public class TestNotificationHandlerInvoker {
   @Before
   public void setup() throws Exception {
     conf = new Configuration(false);
+    conf.set("fs.default.name", "file:///");
     commitContext = new CommitContext(UUID.randomUUID(), 1L);
     handler = Mockito.spy(new NotificationHandler(conf) {});
     invoker = new NotificationHandlerInvoker(conf,

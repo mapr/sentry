@@ -24,10 +24,16 @@ import java.io.IOException;
 import junit.framework.Assert;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.sentry.policy.kafka.KafkaPolicyFileProviderBackend;
 import org.apache.sentry.provider.file.PolicyFiles;
 
 public class TestKafkaPolicyEngineLocalFS extends AbstractTestKafkaPolicyEngine {
+  private static final Configuration conf = new Configuration();
+  static {
+    conf.set("fs.default.name", "file:///");
+  }
+
 
   @Override
   protected void  afterSetup() throws IOException {
@@ -35,7 +41,7 @@ public class TestKafkaPolicyEngineLocalFS extends AbstractTestKafkaPolicyEngine 
     Assert.assertNotNull(baseDir);
     Assert.assertTrue(baseDir.isDirectory() || baseDir.mkdirs());
     PolicyFiles.copyToDir(baseDir, "test-authz-provider.ini");
-    setPolicy(new KafkaPolicyFileProviderBackend(new File(baseDir, "test-authz-provider.ini").getPath()));
+    setPolicy(new KafkaPolicyFileProviderBackend(conf, new File(baseDir, "test-authz-provider.ini").getPath()));
   }
 
   @Override

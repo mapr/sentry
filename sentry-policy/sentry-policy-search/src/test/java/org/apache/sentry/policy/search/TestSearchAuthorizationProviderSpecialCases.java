@@ -22,6 +22,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.hadoop.conf.Configuration;
 import org.junit.Assert;
 
 import org.apache.commons.io.FileUtils;
@@ -47,6 +48,13 @@ public class TestSearchAuthorizationProviderSpecialCases {
   private File baseDir;
   private File iniFile;
   private String initResource;
+
+  private static final Configuration conf = new Configuration();
+  static {
+    conf.set("fs.default.name", "file:///");
+  }
+
+
   @Before
   public void setup() throws IOException {
     baseDir = Files.createTempDir();
@@ -72,8 +80,8 @@ public class TestSearchAuthorizationProviderSpecialCases {
       .addPermissionsToRole("role1", true, "collection=" + collection1.getName(),
           "collection=" + collection1.getName());
     policyFile.write(iniFile);
-    SearchPolicyFileBackend policy = new SearchPolicyFileBackend(initResource);
-    authzProvider = new LocalGroupResourceAuthorizationProvider(initResource, policy);
+    SearchPolicyFileBackend policy = new SearchPolicyFileBackend(initResource, conf);
+    authzProvider = new LocalGroupResourceAuthorizationProvider(conf, initResource, policy);
     List<? extends Authorizable> authorizableHierarchy = ImmutableList.of(collection1);
     Assert.assertTrue(authorizableHierarchy.toString(),
         authzProvider.hasAccess(user1, authorizableHierarchy, actions, ActiveRoleSet.ALL));

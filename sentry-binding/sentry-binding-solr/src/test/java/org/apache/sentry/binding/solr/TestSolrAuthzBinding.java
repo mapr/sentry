@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import org.apache.sentry.maprminicluster.MapRMiniDFSCluster;
 import org.junit.Assert;
 
 import org.apache.commons.io.FileUtils;
@@ -79,6 +80,7 @@ public class TestSolrAuthzBinding {
     baseDir = Files.createTempDir();
     PolicyFiles.copyToDir(baseDir, RESOURCE_PATH);
     authzConf.set(AuthzConfVars.AUTHZ_PROVIDER_RESOURCE.getVar(), new File(baseDir, RESOURCE_PATH).getPath());
+    authzConf.set("fs.default.name", "file:///");
   }
 
   @After
@@ -93,6 +95,7 @@ public class TestSolrAuthzBinding {
     conf.set(AuthzConfVars.AUTHZ_PROVIDER_RESOURCE.getVar(), new File(baseDir, RESOURCE_PATH).getPath());
     conf.set(AuthzConfVars.AUTHZ_PROVIDER_BACKEND.getVar(), AuthzConfVars.AUTHZ_PROVIDER_BACKEND.getDefault());
     conf.set(AuthzConfVars.AUTHZ_POLICY_ENGINE.getVar(), AuthzConfVars.AUTHZ_POLICY_ENGINE.getDefault());
+    conf.set("fs.default.name", "file:///");
   }
 
   /**
@@ -379,10 +382,10 @@ public class TestSolrAuthzBinding {
         new SolrAuthzConf(Resources.getResource("sentry-site.xml"));
     setUsableAuthzConf(solrAuthzConf);
 
-    MiniDFSCluster dfsCluster =  HdfsTestUtil.setupClass(new File(Files.createTempDir(),
+    MapRMiniDFSCluster dfsCluster =  MapRFsTestUtil.setupClass(new File(Files.createTempDir(),
       TestSolrAuthzBinding.class.getName() + "_"
         + System.currentTimeMillis()).getAbsolutePath());
-    String resourceOnHDFS = "/hdfs" + File.separator + UUID.randomUUID() + File.separator + "test-authz-provider.ini";
+    String resourceOnHDFS = dfsCluster.getFileSystem().getWorkingDirectory() + "/hdfs" + File.separator + UUID.randomUUID() + File.separator + "test-authz-provider.ini";
     try {
       // Copy resource to HDFSS
       dfsCluster.getFileSystem().copyFromLocalFile(false,
@@ -394,7 +397,7 @@ public class TestSolrAuthzBinding {
       new SolrAuthzBinding(solrAuthzConf);
     } finally {
       if (dfsCluster != null) {
-        HdfsTestUtil.teardownClass(dfsCluster);
+        MapRFsTestUtil.teardownClass(dfsCluster);
       }
     }
   }

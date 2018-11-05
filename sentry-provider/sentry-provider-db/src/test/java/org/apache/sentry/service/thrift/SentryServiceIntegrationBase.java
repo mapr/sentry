@@ -96,6 +96,10 @@ public abstract class SentryServiceIntegrationBase extends SentryMiniKdcTestcase
 
   protected static boolean pooled = false;
 
+  static {
+    conf.set("fs.default.name", "file:///");
+  }
+
   @BeforeClass
   public static void setup() throws Exception {
     kerberos = true;
