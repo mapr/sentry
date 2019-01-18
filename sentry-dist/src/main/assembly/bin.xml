@@ -44,6 +44,7 @@
         <exclude>com.jolbox:bonecp</exclude>
         <exclude>org.apache.hive:hive-beeline</exclude>
         <exclude>org.apache.derby:derby</exclude>
+        <exclude>com.mapr.hadoop:maprfs</exclude>
       </excludes>
     </dependencySet>
 <!--
